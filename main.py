@@ -12,8 +12,8 @@ import win32con
 
 # ─── PATHS ────────────────────────────────────────────────────────────────────
 
-APP_NAME         = "MMT"
-OUTPUT_PORT_NAME = "MMT_OUT"  # Your loopMIDI port name — change if needed
+APP_NAME         = "MidiWarp"
+OUTPUT_PORT_NAME = "MidiWarp_OUT"  # Your loopMIDI port name — change if needed
 
 DATA_DIR    = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), APP_NAME)
 SCRIPTS_DIR = os.path.join(DATA_DIR, "scripts")
@@ -28,8 +28,8 @@ except ImportError:
     print("[AI] google-genai not installed. Run: pip install google-genai")
 
 AI_SYSTEM_PROMPT = """\
-You are an expert at writing MMT (MIDI Mapping Translator) scripts.
-MMT scripts are plain Python files that run on every incoming MIDI event.
+You are an expert at writing MidiWarp scripts.
+MidiWarp scripts are plain Python files that run on every incoming MIDI event.
 
 AVAILABLE VARIABLES (read/write):
   event_type : str  — 'note_on', 'note_off', 'control_change', 'pitchwheel', 'program_change'
@@ -674,23 +674,22 @@ def port_watchdog(midi: MidiHandler, api: API):
 
 
 
-def build_tray_image():
-    """Draw a minimal 64x64 tray icon — dark background, gold 'M'."""
-    img = Image.new('RGBA', (64, 64), (0, 0, 0, 0))
-    dc  = ImageDraw.Draw(img)
-    # Background circle
-    dc.ellipse([2, 2, 62, 62], fill=(30, 27, 22, 255))
-    # Simple 'M' shape in gold
-    pts = [
-        (14, 46), (14, 18),
-        (32, 36),
-        (50, 18), (50, 46),
-    ]
-    dc.line(pts, fill=(201, 169, 110, 255), width=5)
-    return img
+def build_tray_image(base_dir):
+    """Load the tray icon from disk, falling back to a generated image."""
+    icon_path = os.path.join(base_dir, "MidiWarp_tray.png")
+    try:
+        return Image.open(icon_path).convert("RGBA")
+    except Exception:
+        # Fallback: draw the old M shape
+        img = Image.new('RGBA', (64, 64), (0, 0, 0, 0))
+        dc  = ImageDraw.Draw(img)
+        dc.ellipse([2, 2, 62, 62], fill=(30, 27, 22, 255))
+        pts = [(14,46),(14,18),(32,36),(50,18),(50,46)]
+        dc.line(pts, fill=(201, 169, 110, 255), width=5)
+        return img
 
 
-def setup_tray(window, midi):
+def setup_tray(window, midi, base_dir):
     """Create and run the system tray icon in a background thread."""
 
     def show(icon, item):
@@ -703,9 +702,9 @@ def setup_tray(window, midi):
         window.destroy()
 
     icon = pystray.Icon(
-        "MMT",
-        build_tray_image(),
-        "MMT",
+        "MidiWarp",
+        build_tray_image(base_dir),
+        "MidiWarp",
         menu=pystray.Menu(
             pystray.MenuItem("Show", show, default=True),
             pystray.MenuItem("Quit", quit_app),
@@ -736,7 +735,7 @@ def main():
     cfg    = load_config()
     bounds = cfg.get("window_bounds", {})
     window = webview.create_window(
-        "MMT",
+        "MidiWarp",
         url=html_path,
         js_api=api,
         width=bounds.get("w", 1100),
@@ -751,7 +750,7 @@ def main():
 
     api.set_window(window)
 
-    tray = setup_tray(window, midi)
+    tray = setup_tray(window, midi, base)
 
     def on_closed():
         # Save current bounds before exit
