@@ -396,8 +396,12 @@ nav {
 .note-cell-name { font-family: var(--mono); font-size: 10px; color: var(--gold); }
 .note-cell-num  { font-family: var(--mono); font-size: 9px; color: var(--text-dim); }
 
-.name-error { height: 0; overflow: hidden; font-family: var(--mono); font-size: 10px; color: #e07070; letter-spacing: 0.06em; padding: 0 22px; transition: height 0.2s, padding 0.2s; border-bottom: 1px solid transparent; flex-shrink: 0; display: flex; align-items: center; }
-.name-error.visible { height: 30px; padding: 0 22px; border-color: rgba(193,90,90,0.15); background: rgba(193,90,90,0.05); }
+.name-error { height: 0; overflow: hidden; font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; padding: 0 22px; transition: height 0.15s, padding 0.15s; border-bottom: 1px solid transparent; flex-shrink: 0; display: flex; align-items: center; }
+.name-error.visible-error  { height: 30px; color: #e07070; border-color: rgba(193,90,90,0.15);  background: rgba(193,90,90,0.05); }
+.name-error.visible-saved  { height: 30px; color: var(--sage); border-color: rgba(122,158,138,0.15); background: rgba(122,158,138,0.05); }
+
+.unsaved-dot { font-size: 7px; color: var(--gold); margin-left: 5px; vertical-align: middle; opacity: 0.8; }
+.s-item.active .unsaved-dot { color: var(--gold); }
 
 /* AI generate button variant */
 .ai-btn { border-color: rgba(160,120,144,0.25); color: var(--mauve); }
@@ -817,7 +821,7 @@ nav {
         <div class="code-wrap">
           <div class="line-nums" id="lnNums"></div>
           <textarea class="code-ta" id="codeTA" spellcheck="false"
-            oninput="syncLN()" onkeydown="handleTab(event)"></textarea>
+            oninput="syncLN(); markUnsaved();" onkeydown="handleTab(event)"></textarea>
         </div>
       </div>
     </div>
@@ -1187,12 +1191,15 @@ async function refreshScripts() {
 }
 
 function renderScriptList() {
-  document.getElementById('sList').innerHTML = scripts.map((s, i) => `
-    <div class="s-item ${activeId === i ? 'active' : ''}" onclick="openScript(${i})">
+  document.getElementById('sList').innerHTML = scripts.map((s, i) => {
+    const isActive   = activeId === i;
+    const showDot    = isActive && hasUnsavedChanges;
+    return `
+    <div class="s-item ${isActive ? 'active' : ''}" onclick="openScript(${i})">
       <div class="ptog ${s.enabled ? 'on' : ''}" onclick="togScript(${i}, event)"></div>
-      <div class="s-name">${esc(s.name)}</div>
-    </div>
-  `).join('');
+      <div class="s-name">${esc(s.name)}${showDot ? '<span class="unsaved-dot" title="Unsaved changes">●</span>' : ''}</div>
+    </div>`;
+  }).join('');
 }
 
 function updateScriptCounts() {
@@ -1220,6 +1227,7 @@ async function togScript(i, e) {
 
 function openScript(i) {
   activeId = i;
+  hasUnsavedChanges = false;
   const s = scripts[i];
   if (!s) return;
   document.getElementById('edEmpty').style.display = 'none';
@@ -1258,6 +1266,7 @@ async function toggleActive() {
 
 function onTitleInput() {
   clearNameError();
+  markUnsaved();
   const val = document.getElementById('edTitle').value;
   if (activeId !== null) {
     scripts[activeId].name = val;
@@ -1283,16 +1292,52 @@ function validateScriptName(name) {
 function showNameError(msg) {
   const el = document.getElementById('nameError');
   el.textContent = msg;
-  el.classList.add('visible');
+  el.className = 'name-error visible-error';
   document.getElementById('edTitle').style.color = '#e07070';
+}
+
+function showSaved() {
+  const el = document.getElementById('nameError');
+  el.textContent = '✓ Saved';
+  el.className = 'name-error visible-saved';
+  document.getElementById('edTitle').style.color = '';
+  clearUnsaved();
+  setTimeout(() => {
+    el.className = 'name-error';
+    el.textContent = '';
+  }, 1800);
 }
 
 function clearNameError() {
   const el = document.getElementById('nameError');
-  el.textContent = '';
-  el.classList.remove('visible');
+  if (el.classList.contains('visible-error')) {
+    el.className = 'name-error';
+    el.textContent = '';
+  }
   document.getElementById('edTitle').style.color = '';
 }
+
+// ── Unsaved changes tracking ──
+let hasUnsavedChanges = false;
+
+function markUnsaved() {
+  if (hasUnsavedChanges) return;
+  hasUnsavedChanges = true;
+  renderScriptList();
+}
+
+function clearUnsaved() {
+  hasUnsavedChanges = false;
+  renderScriptList();
+}
+
+// Ctrl+S
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault();
+    if (activeId !== null) saveScript();
+  }
+});
 
 async function saveScript() {
   if (activeId === null) return;
@@ -1311,15 +1356,10 @@ async function saveScript() {
 
   await call('save_script', name, code);
 
-  pendingName    = name;
+  pendingName = name;
   scripts[activeId].name = name;
   scripts[activeId].code = code;
-  renderScriptList();
-
-  const btn = document.getElementById('saveBtn');
-  btn.textContent = '✓ Saved';
-  btn.style.color = 'var(--sage)';
-  setTimeout(() => { btn.textContent = 'Save'; btn.style.color = ''; }, 1600);
+  showSaved();
 }
 
 async function deleteScript() {
