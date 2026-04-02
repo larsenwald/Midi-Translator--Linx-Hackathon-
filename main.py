@@ -163,8 +163,11 @@ class MidiHandler:
         if port:
             try:
                 yield from port.iter_pending()
-            except Exception:
-                pass
+            except Exception as e:
+                # Port died — clear it and signal disconnection to caller
+                with self._lock:
+                    self.input_port = None
+                raise ConnectionError(f"Input port disconnected: {e}")
 
     def close(self):
         with self._lock:
@@ -556,31 +559,39 @@ def msg_to_event(msg, applied):
 
 def monitor_loop(midi: MidiHandler, engine: ScriptEngine, api: API):
     while True:
-        for msg in midi.iter_pending():
-            out_msgs, applied = engine.process_message(msg)
+        try:
+            for msg in midi.iter_pending():
+                out_msgs, applied = engine.process_message(msg)
 
-            for out_msg in out_msgs:
-                midi.send(out_msg)
+                for out_msg in out_msgs:
+                    midi.send(out_msg)
 
-            raw_ev = msg_to_event(msg, None)
-            tx_ev  = msg_to_event(out_msgs[0], applied) if out_msgs else raw_ev
+                raw_ev = msg_to_event(msg, None)
+                tx_ev  = msg_to_event(out_msgs[0], applied) if out_msgs else raw_ev
 
-            # Collect any script errors to push to the UI
-            script_errors = {
-                s["name"]: s["last_error"]
-                for s in engine.scripts
-                if s.get("last_error")
-            }
+                script_errors = {
+                    s["name"]: s["last_error"]
+                    for s in engine.scripts
+                    if s.get("last_error")
+                }
 
-            payload = json.dumps({
-                "raw": raw_ev,
-                "tx":  tx_ev,
-                "script_errors": script_errors,
-            })
+                payload = json.dumps({
+                    "raw": raw_ev,
+                    "tx":  tx_ev,
+                    "script_errors": script_errors,
+                })
 
+                if api._window:
+                    try:
+                        api._window.evaluate_js(f"window.onMidiEvent({payload})")
+                    except Exception:
+                        pass
+
+        except ConnectionError as e:
+            print(f"[MIDI] {e}")
             if api._window:
                 try:
-                    api._window.evaluate_js(f"window.onMidiEvent({payload})")
+                    api._window.evaluate_js("window.onMidiDisconnected()")
                 except Exception:
                     pass
 
