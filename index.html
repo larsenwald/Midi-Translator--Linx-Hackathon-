@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MMT</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #1a1815;
+  --bg2:      #211e1a;
+  --bg3:      #181512;
+  --card:     rgba(36,32,28,0.9);
+  --border:   rgba(255,255,255,0.065);
+  --border2:  rgba(255,255,255,0.11);
+  --text:     #d8d0c4;
+  --text-mid: rgba(216,208,196,0.55);
+  --text-dim: rgba(216,208,196,0.28);
+  --text-xdim:rgba(216,208,196,0.14);
+  --sage:     #7a9e8a;
+  --sage-d:   rgba(122,158,138,0.18);
+  --sage-s:   rgba(122,158,138,0.10);
+  --rust:     #c17a5a;
+  --rust-s:   rgba(193,122,90,0.10);
+  --gold:     #c9a96e;
+  --gold-d:   rgba(201,169,110,0.18);
+  --gold-s:   rgba(201,169,110,0.10);
+  --mauve:    #a07890;
+  --mauve-s:  rgba(160,120,144,0.12);
+  --sky:      #6e98b4;
+  --sky-s:    rgba(110,152,180,0.10);
+  --sans:     'Cormorant', serif;
+  --mono:     'DM Mono', monospace;
+  --radius:   10px;
+}
+
+html, body { height: 100%; overflow: hidden; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+}
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background:
+    radial-gradient(ellipse 70% 60% at 50% 50%, rgba(193,122,90,0.04) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 40% at 15% 85%, rgba(122,158,138,0.04) 0%, transparent 60%),
+    radial-gradient(ellipse 35% 35% at 85% 15%, rgba(201,169,110,0.03) 0%, transparent 60%);
+  pointer-events: none; z-index: 0;
+}
+
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 2px; }
+
+/* ─── NAV ─── */
+nav {
+  position: relative; z-index: 100;
+  display: flex; align-items: center;
+  padding: 0 28px; height: 50px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(18,15,12,0.7);
+  backdrop-filter: blur(24px);
+  flex-shrink: 0;
+  user-select: none;
+  cursor: default;
+}
+.nav-logo {
+  font-size: 16px; font-weight: 400;
+  letter-spacing: 0.28em; text-transform: uppercase;
+  color: var(--gold); margin-right: 32px; flex-shrink: 0;
+}
+.nav-tabs { display: flex; gap: 2px; }
+.nav-tab {
+  padding: 5px 18px;
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text-dim); cursor: pointer;
+  border-radius: 4px; border: 1px solid transparent;
+  transition: all 0.2s; user-select: none;
+}
+.nav-tab:hover { color: var(--text-mid); }
+.nav-tab.active { color: var(--gold); background: var(--gold-s); border-color: rgba(201,169,110,0.15); }
+.nav-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.nav-scripts-badge {
+  padding: 2px 8px;
+  background: var(--sage-s); border: 1px solid rgba(122,158,138,0.2);
+  border-radius: 10px; font-family: var(--mono); font-size: 9px;
+  color: var(--sage); letter-spacing: 0.08em;
+}
+.nav-status { display: flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 10px; color: var(--text-dim); letter-spacing: 0.06em; }
+.nav-led { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.1); transition: all 0.4s; flex-shrink: 0; }
+.nav-led.on { background: var(--sage); box-shadow: 0 0 8px var(--sage); animation: breathe 2.8s ease-in-out infinite; }
+
+/* Window controls */
+.win-controls { display: flex; align-items: center; gap: 6px; margin-left: 8px; }
+.win-btn {
+  width: 28px; height: 28px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 11px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.win-btn:hover { background: rgba(255,255,255,0.06); color: var(--text); border-color: var(--border2); }
+.win-btn.close:hover { background: rgba(193,90,90,0.2); color: #e07070; border-color: rgba(193,90,90,0.3); }
+
+/* Resize handles */
+.resize-handle {
+  position: fixed;
+  z-index: 9999;
+}
+.resize-n  { top: 0;    left: 6px;  right: 6px; height: 4px; cursor: n-resize; }
+.resize-s  { bottom: 0; left: 6px;  right: 6px; height: 4px; cursor: s-resize; }
+.resize-w  { left: 0;   top: 6px;   bottom: 6px; width: 4px; cursor: w-resize; }
+.resize-e  { right: 0;  top: 6px;   bottom: 6px; width: 4px; cursor: e-resize; }
+.resize-nw { top: 0; left: 0;   width: 8px; height: 8px; cursor: nw-resize; }
+.resize-ne { top: 0; right: 0;  width: 8px; height: 8px; cursor: ne-resize; }
+.resize-sw { bottom: 0; left: 0;  width: 8px; height: 8px; cursor: sw-resize; }
+.resize-se { bottom: 0; right: 0; width: 8px; height: 8px; cursor: se-resize; }
+@keyframes breathe { 0%,100%{opacity:1} 50%{opacity:0.45} }
+
+/* ─── SHELL ─── */
+.shell { height: calc(100vh - 50px - 26px); position: relative; z-index: 1; }
+.page { display: none; height: 100%; }
+.page.active { display: flex; }
+
+/* ═══════════ HOME ═══════════ */
+.home { flex-direction: row; overflow: hidden; }
+
+.home-left {
+  width: 380px; flex-shrink: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 32px 28px;
+  border-right: 1px solid var(--border);
+  position: relative; gap: 28px;
+}
+.home-left::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(ellipse 80% 60% at 50% 40%, rgba(193,122,90,0.04) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* Orb */
+.orb-section { position: relative; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.orb-ring { position: absolute; border-radius: 50%; border: 1px solid var(--border2); }
+.orb-ring-1 { width: 280px; height: 280px; animation: orbspin 44s linear infinite; border-color: rgba(255,255,255,0.05); }
+.orb-ring-2 { width: 256px; height: 256px; animation: orbspin 30s linear infinite reverse; opacity: 0.4; border-style: dashed; border-color: rgba(255,255,255,0.04); }
+@keyframes orbspin { to { transform: rotate(360deg); } }
+.orb-ring-1::before { content: ''; position: absolute; top: -3px; left: 50%; width: 1px; height: 7px; background: var(--gold); transform: translateX(-50%); opacity: 0.5; }
+
+.orb {
+  width: 214px; height: 214px; border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.09);
+  background:
+    radial-gradient(ellipse at 38% 32%, rgba(193,122,90,0.1), transparent 58%),
+    radial-gradient(ellipse at 65% 72%, rgba(122,158,138,0.07), transparent 50%),
+    #1d1a17;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px; cursor: pointer; position: relative; overflow: hidden;
+  box-shadow: 0 0 50px rgba(0,0,0,0.5), 0 0 100px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05);
+  transition: all 0.4s ease; user-select: none;
+}
+.orb::before {
+  content: ''; position: absolute; inset: 0; border-radius: 50%;
+  background: radial-gradient(ellipse at 38% 28%, rgba(255,255,255,0.035), transparent 55%);
+  pointer-events: none;
+}
+.orb:hover { box-shadow: 0 0 70px rgba(193,122,90,0.12), 0 0 120px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.13); }
+.orb:hover .orb-icon { color: var(--gold); }
+.orb.connected {
+  background:
+    radial-gradient(ellipse at 38% 32%, rgba(122,158,138,0.16), transparent 60%),
+    radial-gradient(ellipse at 65% 70%, rgba(122,158,138,0.08), transparent 50%),
+    #1d1a17;
+  border-color: rgba(122,158,138,0.18);
+  box-shadow: 0 0 60px rgba(122,158,138,0.1), 0 0 100px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);
+}
+.orb.connected .orb-icon { color: var(--sage); }
+.orb.connected .orb-label { color: var(--sage); font-style: normal; }
+.orb-eyebrow { font-family: var(--mono); font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-dim); }
+.orb-icon { font-size: 24px; color: var(--text-dim); transition: color 0.35s; }
+.orb-label { font-size: 15px; font-weight: 300; font-style: italic; color: var(--text-mid); text-align: center; line-height: 1.3; padding: 0 20px; transition: color 0.35s; max-width: 175px; }
+.orb-sub { font-family: var(--mono); font-size: 9px; color: var(--text-dim); letter-spacing: 0.08em; }
+
+/* Dropdown */
+.orb-dropdown {
+  position: absolute; top: calc(100% + 12px); left: 50%; transform: translateX(-50%);
+  min-width: 280px; background: rgba(22,19,16,0.97);
+  border: 1px solid var(--border2); border-radius: var(--radius);
+  backdrop-filter: blur(28px); box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  overflow: hidden; z-index: 50;
+  animation: dropIn 0.2s cubic-bezier(0.16,1,0.3,1);
+}
+@keyframes dropIn {
+  from { opacity:0; transform:translateX(-50%) translateY(-8px) scale(0.97); }
+  to   { opacity:1; transform:translateX(-50%) translateY(0) scale(1); }
+}
+.dd-head { padding: 11px 16px; font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-dim); border-bottom: 1px solid var(--border); }
+.dd-empty { padding: 20px 16px; font-family: var(--mono); font-size: 11px; color: var(--text-dim); text-align: center; }
+.dd-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; border-bottom: 1px solid var(--border); transition: background 0.15s; }
+.dd-row:last-child { border-bottom: none; }
+.dd-row:hover { background: rgba(255,255,255,0.03); }
+.dd-row:hover .dd-name { color: var(--gold); }
+.dd-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: var(--sage); box-shadow: 0 0 6px rgba(122,158,138,0.6); }
+.dd-name { font-size: 13px; font-weight: 300; flex: 1; color: var(--text); transition: color 0.15s; }
+
+/* Info chips */
+.info-chips { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.info-chip { display: flex; align-items: center; gap: 7px; padding: 7px 13px; border: 1px solid var(--border); border-radius: 6px; background: var(--card); font-family: var(--mono); font-size: 10px; color: var(--text-dim); }
+.chip-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--text-xdim); }
+.info-chip.active-chip .chip-dot { background: var(--sage); box-shadow: 0 0 5px var(--sage); animation: breathe 2.8s infinite; }
+.info-chip.active-chip { border-color: rgba(122,158,138,0.2); color: var(--sage); }
+.info-chip.out-chip { border-color: rgba(201,169,110,0.15); color: var(--gold); }
+.info-chip.out-chip .chip-dot { background: var(--gold); }
+.info-chip.scripts-active { border-color: rgba(122,158,138,0.2); color: var(--sage); }
+.info-chip.scripts-active .chip-dot { background: var(--sage); }
+
+/* ─ Right: event feed ─ */
+.home-right { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+.feed-hdr { padding: 0 24px; height: 50px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 16px; background: rgba(20,17,14,0.5); backdrop-filter: blur(16px); flex-shrink: 0; }
+.feed-hdr-title { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-dim); }
+.feed-hdr-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.feed-btn { padding: 4px 12px; border: 1px solid var(--border2); border-radius: 4px; background: transparent; font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); cursor: pointer; transition: all 0.2s; }
+.feed-btn:hover { color: var(--gold); border-color: rgba(201,169,110,0.3); }
+.feed-btn.active { color: var(--gold); border-color: rgba(201,169,110,0.3); background: var(--gold-s); }
+.feed-btn.danger:hover { color: var(--rust); border-color: rgba(193,122,90,0.3); }
+
+.feed-body { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+
+/* Live display */
+.live-display {
+  padding: 24px 28px 18px; border-bottom: 1px solid var(--border);
+  display: flex; gap: 28px; align-items: flex-start;
+  flex-shrink: 0; min-height: 120px; position: relative;
+}
+.live-display::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(ellipse 60% 100% at 50% 50%, rgba(193,122,90,0.025) 0%, transparent 70%);
+  pointer-events: none;
+}
+.live-block { flex: 1; display: flex; flex-direction: column; gap: 7px; }
+.live-block-label { font-family: var(--mono); font-size: 8px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-dim); display: flex; align-items: center; gap: 6px; }
+.live-block-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.live-event-main { font-size: 36px; font-weight: 300; color: var(--text); letter-spacing: -0.02em; line-height: 1; transition: color 0.2s; }
+.live-event-main.idle { color: var(--text-xdim); font-style: italic; font-size: 18px; padding-top: 8px; }
+.live-event-main.flash { animation: flashIn 0.2s ease-out; }
+@keyframes flashIn { 0%{color:var(--gold)} 100%{color:var(--text)} }
+.live-event-detail { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; min-height: 22px; }
+.live-tag { display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 3px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; font-weight: 400; }
+.live-tag.note-on  { background: var(--sage-d);  color: var(--sage);  border: 1px solid rgba(122,158,138,0.25); }
+.live-tag.note-off { background: rgba(255,255,255,0.04); color: var(--text-dim); border: 1px solid var(--border); }
+.live-tag.cc       { background: var(--sky-s);   color: var(--sky);   border: 1px solid rgba(110,152,180,0.2); }
+.live-tag.pc       { background: var(--mauve-s); color: var(--mauve); border: 1px solid rgba(160,120,144,0.2); }
+.live-tag.pb       { background: var(--gold-s);  color: var(--gold);  border: 1px solid rgba(201,169,110,0.2); }
+.live-tag.at       { background: var(--rust-s);  color: var(--rust);  border: 1px solid rgba(193,122,90,0.2); }
+.live-tag.meta     { background: rgba(255,255,255,0.04); color: var(--text-dim); border: 1px solid var(--border); }
+.live-arrow { display: flex; align-items: center; justify-content: center; padding-top: 20px; color: var(--text-dim); font-size: 16px; opacity: 0.35; flex-shrink: 0; }
+.tx-indicator { font-family: var(--mono); font-size: 9px; color: var(--text-xdim); letter-spacing: 0.06em; min-height: 14px; }
+.tx-indicator.active { color: var(--mauve); }
+
+/* Waveform */
+.wave-bar { padding: 10px 28px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.wave-canvas-wrap { height: 34px; }
+.wave-canvas-wrap svg { width: 100%; height: 100%; }
+
+/* Log */
+.event-log-wrap { flex: 1; overflow: hidden; min-height: 0; }
+.event-log { height: 100%; overflow-y: auto; padding: 6px 0; }
+.log-row {
+  display: grid;
+  grid-template-columns: 44px 56px 120px 1fr 90px;
+  align-items: center;
+  padding: 4px 28px;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  font-family: var(--mono); font-size: 11px;
+  animation: logSlide 0.12s ease-out;
+  transition: background 0.1s;
+}
+.log-row:hover { background: rgba(255,255,255,0.015); }
+.log-row.transformed { background: rgba(160,120,144,0.03); }
+@keyframes logSlide { from{opacity:0;transform:translateX(-4px)} to{opacity:1;transform:none} }
+.log-idx  { color: var(--text-xdim); font-size: 9px; }
+.log-time { color: var(--text-dim);  font-size: 9px; }
+.log-data { color: var(--text-mid); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.log-tx   { font-size: 9px; letter-spacing: 0.05em; color: var(--text-xdim); text-align: right; }
+.log-tx.has-tx { color: var(--mauve); }
+.log-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 10px; color: var(--text-xdim); font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; }
+.log-empty-glyph { font-family: var(--sans); font-size: 32px; font-style: italic; opacity: 0.3; }
+
+/* ═══════════ SCRIPTS ═══════════ */
+.scripts-page { flex-direction: row; }
+
+.s-sidebar { width: 256px; flex-shrink: 0; border-right: 1px solid var(--border); background: rgba(20,17,14,0.5); backdrop-filter: blur(20px); display: flex; flex-direction: column; }
+.s-sidebar-top { padding: 16px 14px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
+.new-script-btn { width: 100%; padding: 9px 14px; border: 1px solid var(--border2); border-radius: 6px; background: transparent; color: var(--text-dim); font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 9px; user-select: none; }
+.new-script-btn:hover { border-color: rgba(201,169,110,0.3); color: var(--gold); background: var(--gold-s); }
+
+.s-list { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 3px; }
+.s-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 7px; cursor: pointer; border: 1px solid transparent; transition: all 0.18s; user-select: none; }
+.s-item:hover { background: rgba(255,255,255,0.025); border-color: var(--border); }
+.s-item.active { background: var(--gold-s); border-color: rgba(201,169,110,0.18); }
+.ptog { width: 28px; height: 16px; border-radius: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); cursor: pointer; position: relative; flex-shrink: 0; transition: all 0.22s; }
+.ptog::after { content: ''; position: absolute; width: 10px; height: 10px; border-radius: 50%; background: var(--text-dim); top: 2px; left: 2px; transition: all 0.22s; }
+.ptog.on { background: var(--sage-s); border-color: rgba(122,158,138,0.3); }
+.ptog.on::after { background: var(--sage); transform: translateX(12px); box-shadow: 0 0 6px rgba(122,158,138,0.5); }
+.s-name { font-family: var(--mono); font-size: 11px; color: var(--text-dim); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: color 0.15s; }
+.s-item.active .s-name { color: var(--gold); }
+.s-item:hover .s-name { color: var(--text-mid); }
+.ptog.on ~ .s-name { color: var(--text-mid); }
+.s-item.active .ptog.on ~ .s-name { color: var(--gold); }
+.s-sidebar-footer { padding: 10px 14px; border-top: 1px solid var(--border); font-family: var(--mono); font-size: 9px; color: var(--text-xdim); letter-spacing: 0.06em; line-height: 1.6; }
+
+/* Editor */
+.ed-col { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: rgba(16,14,11,0.4); min-width: 0; }
+.ed-hdr { display: flex; align-items: center; height: 50px; border-bottom: 1px solid var(--border); background: rgba(20,17,14,0.6); backdrop-filter: blur(20px); flex-shrink: 0; }
+.ed-title { flex: 1; height: 100%; padding: 0 22px; font-family: var(--mono); font-size: 12px; color: var(--text); background: transparent; border: none; border-right: 1px solid var(--border); outline: none; letter-spacing: 0.04em; }
+.ed-title::placeholder { color: var(--text-dim); }
+.ed-btn { height: 100%; padding: 0 18px; border: none; border-right: 1px solid var(--border); background: transparent; font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; transition: all 0.15s; color: var(--text-dim); white-space: nowrap; flex-shrink: 0; }
+.ed-btn:last-child { border-right: none; }
+.ed-btn:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+.ed-btn.del:hover { color: var(--rust); }
+.ed-btn.save { color: var(--gold); }
+.ed-btn.save:hover { background: var(--gold-s); }
+.ed-btn.tog-on  { color: var(--sage); }
+.ed-btn.tog-off { color: var(--text-dim); }
+
+/* DSL ref */
+.dsl-ref { border-bottom: 1px solid var(--border); background: rgba(18,15,12,0.5); flex-shrink: 0; overflow: hidden; transition: max-height 0.3s ease; max-height: 0; }
+.dsl-ref.open { max-height: 200px; }
+.dsl-ref-inner { padding: 14px 22px; display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
+.dsl-section-title { font-family: var(--mono); font-size: 8px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 6px; }
+.dsl-items { display: flex; flex-direction: column; gap: 3px; }
+.dsl-item { font-family: var(--mono); font-size: 10px; color: var(--text-dim); display: flex; gap: 8px; line-height: 1.5; }
+.dsl-kw { color: var(--gold); }
+.dsl-ref-toggle { display: flex; align-items: center; gap: 8px; padding: 0 18px; height: 100%; border-left: 1px solid var(--border); font-family: var(--mono); font-size: 10px; color: var(--text-dim); cursor: pointer; transition: all 0.15s; white-space: nowrap; flex-shrink: 0; letter-spacing: 0.08em; text-transform: uppercase; }
+.dsl-ref-toggle:hover { color: var(--sky); }
+.dsl-ref-toggle.open { color: var(--sky); background: var(--sky-s); }
+
+.code-wrap { flex: 1; display: flex; overflow: hidden; }
+.line-nums { padding: 18px 12px 18px 18px; font-family: var(--mono); font-size: 12px; line-height: 1.9; color: var(--text-xdim); text-align: right; user-select: none; border-right: 1px solid rgba(255,255,255,0.04); min-width: 48px; }
+.code-ta { flex: 1; padding: 18px 24px; font-family: var(--mono); font-size: 12px; line-height: 1.9; color: var(--text); background: transparent; border: none; outline: none; resize: none; caret-color: var(--gold); tab-size: 2; }
+.code-ta::selection { background: rgba(201,169,110,0.15); }
+
+/* Empty state */
+.ed-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; color: var(--text-dim); }
+.ed-empty-glyph { font-family: var(--mono); font-size: 44px; font-weight: 300; opacity: 0.2; letter-spacing: -0.04em; }
+.ed-empty-txt { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-xdim); }
+.ed-empty-hint { display: flex; gap: 8px; align-items: center; padding: 8px 16px; border: 1px solid var(--border); border-radius: 6px; font-family: var(--mono); font-size: 10px; color: var(--text-xdim); margin-top: 4px; cursor: pointer; transition: all 0.2s; }
+.ed-empty-hint:hover { color: var(--gold); border-color: rgba(201,169,110,0.25); background: var(--gold-s); }
+
+/* Docs link in ref panel */
+.dsl-docs-link { font-family: var(--mono); font-size: 10px; color: var(--sky); letter-spacing: 0.08em; cursor: pointer; transition: opacity 0.15s; padding: 4px 0; }
+.dsl-docs-link:hover { opacity: 0.7; }
+
+/* Docs modal */
+.docs-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(6px); z-index: 500; }
+.docs-overlay.open { display: block; }
+.docs-modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); width: min(820px,92vw); max-height: 82vh; background: #1e1b17; border: 1px solid var(--border2); border-radius: 12px; box-shadow: 0 32px 80px rgba(0,0,0,0.7); z-index: 501; flex-direction: column; overflow: hidden; animation: modalIn 0.22s cubic-bezier(0.16,1,0.3,1); }
+.docs-modal.open { display: flex; }
+@keyframes modalIn { from{opacity:0;transform:translate(-50%,-50%) scale(0.96)} to{opacity:1;transform:translate(-50%,-50%) scale(1)} }
+.docs-modal-hdr { display: flex; align-items: center; padding: 18px 24px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.docs-modal-title { font-size: 18px; font-weight: 300; letter-spacing: 0.04em; color: var(--text); flex: 1; }
+.docs-close { width: 28px; height: 28px; border: 1px solid var(--border2); border-radius: 4px; background: transparent; color: var(--text-dim); font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+.docs-close:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+.docs-modal-body { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 28px; }
+.docs-section { display: flex; flex-direction: column; gap: 10px; }
+.docs-section-title { font-family: var(--mono); font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--gold); padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+.docs-section p { font-size: 13px; font-family: var(--mono); color: var(--text-dim); line-height: 1.7; }
+.docs-section p code { color: var(--gold); background: rgba(201,169,110,0.08); padding: 1px 5px; border-radius: 3px; }
+.docs-table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 11px; }
+.docs-table th { text-align: left; padding: 7px 12px; color: var(--text-dim); border-bottom: 1px solid var(--border2); font-weight: 400; letter-spacing: 0.06em; font-size: 10px; }
+.docs-table td { padding: 7px 12px; color: var(--text-mid); border-bottom: 1px solid var(--border); vertical-align: top; }
+.docs-table td:first-child { color: var(--gold); white-space: nowrap; }
+.docs-table tr:last-child td { border-bottom: none; }
+.docs-table tr:hover td { background: rgba(255,255,255,0.015); }
+.docs-examples { display: flex; flex-direction: column; gap: 12px; }
+.docs-example { border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.docs-example-label { padding: 7px 14px; font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border); }
+.docs-example pre { margin: 0; padding: 12px 14px; font-family: var(--mono); font-size: 11px; line-height: 1.8; color: var(--text); background: transparent; white-space: pre; }
+.note-map { overflow-x: auto; }
+.note-map-row { display: flex; gap: 2px; flex-wrap: wrap; row-gap: 6px; }
+.note-cell { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px; border: 1px solid var(--border); border-radius: 4px; min-width: 44px; background: rgba(255,255,255,0.02); }
+.note-cell.sharp { background: rgba(255,255,255,0.01); border-color: rgba(255,255,255,0.04); }
+.note-cell-name { font-family: var(--mono); font-size: 10px; color: var(--gold); }
+.note-cell-num  { font-family: var(--mono); font-size: 9px; color: var(--text-dim); }
+
+/* Status bar */
+.status-bar { position: fixed; bottom: 0; left: 0; right: 0; height: 26px; background: rgba(14,12,10,0.85); backdrop-filter: blur(16px); border-top: 1px solid var(--border); display: flex; align-items: center; padding: 0 16px; gap: 18px; z-index: 200; font-family: var(--mono); font-size: 9px; letter-spacing: 0.06em; color: var(--text-xdim); }
+.sb-item { display: flex; align-items: center; gap: 5px; }
+.sb-dot { width: 4px; height: 4px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+.sb-item.green { color: var(--sage); }
+.sb-item.gold  { color: var(--gold); }
+.sb-sep { color: var(--text-xdim); opacity: 0.25; }
+</style>
+</head>
+<body>
+
+<!-- Resize handles -->
+<div class="resize-handle resize-n"  data-dir="n"></div>
+<div class="resize-handle resize-s"  data-dir="s"></div>
+<div class="resize-handle resize-w"  data-dir="w"></div>
+<div class="resize-handle resize-e"  data-dir="e"></div>
+<div class="resize-handle resize-nw" data-dir="nw"></div>
+<div class="resize-handle resize-ne" data-dir="ne"></div>
+<div class="resize-handle resize-sw" data-dir="sw"></div>
+<div class="resize-handle resize-se" data-dir="se"></div>
+
+<nav>
+  <div class="nav-logo">MMT</div>
+  <div class="nav-tabs">
+    <div class="nav-tab active" onclick="goPage('home',this)">Home</div>
+    <div class="nav-tab" onclick="goPage('scripts',this)">Scripts</div>
+  </div>
+  <div class="nav-right">
+    <div class="nav-scripts-badge" id="navBadge">0 scripts active</div>
+    <div class="nav-status">
+      <div class="nav-led" id="navLed"></div>
+      <span id="navTxt">No input</span>
+    </div>
+    <div class="win-controls">
+      <button class="win-btn" onclick="winMinimize()" title="Minimize">─</button>
+      <button class="win-btn" id="maxBtn" onclick="winMaximize()" title="Maximize">▭</button>
+      <button class="win-btn close" onclick="hideToTray()" title="Hide to tray">✕</button>
+    </div>
+  </div>
+</nav>
+
+<div class="shell">
+
+  <!-- ═══ HOME ═══ -->
+  <div class="page active home" id="page-home">
+
+    <div class="home-left">
+      <div class="orb-section" id="orbWrap">
+
+        <div class="orb" id="orb" onclick="toggleDD()">
+          <div class="orb-eyebrow">MIDI Input</div>
+          <div class="orb-icon">◎</div>
+          <div class="orb-label" id="orbLabel">Select a port<br>to begin</div>
+          <div class="orb-sub" id="orbSub">click to choose</div>
+        </div>
+        <div class="orb-dropdown" id="orbDD" style="display:none">
+          <div class="dd-head">Available ports</div>
+          <div id="ddRows"></div>
+        </div>
+      </div>
+
+      <div class="info-chips">
+        <div class="info-chip" id="inputChip">
+          <div class="chip-dot"></div>
+          <span id="inputChipTxt">No input</span>
+        </div>
+        <div class="info-chip out-chip">
+          <div class="chip-dot"></div>
+          <span id="outputChipTxt">MMT_OUT</span>
+        </div>
+        <div class="info-chip" id="scriptsChip">
+          <div class="chip-dot"></div>
+          <span id="scriptsChipTxt">0 scripts active</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="home-right">
+      <div class="feed-hdr">
+        <div class="feed-hdr-title">Event Feed</div>
+        <div class="feed-hdr-right">
+          <button class="feed-btn" id="pauseBtn" onclick="togglePause()">Pause</button>
+          <button class="feed-btn danger" onclick="clearLog()">Clear</button>
+        </div>
+      </div>
+
+      <div class="feed-body">
+        <div class="live-display">
+          <div class="live-block">
+            <div class="live-block-label">Raw in</div>
+            <div class="live-event-main idle" id="liveRaw">waiting…</div>
+            <div class="live-event-detail" id="liveRawDetail"></div>
+          </div>
+          <div class="live-arrow">→</div>
+          <div class="live-block">
+            <div class="live-block-label">After scripts</div>
+            <div class="live-event-main idle" id="liveTx">—</div>
+            <div class="live-event-detail" id="liveTxDetail"></div>
+            <div class="tx-indicator" id="txIndicator">passthrough</div>
+          </div>
+        </div>
+
+        <div class="wave-bar">
+          <div class="wave-canvas-wrap">
+            <svg viewBox="0 0 600 34" preserveAspectRatio="none" id="waveSvg">
+              <defs>
+                <linearGradient id="wg" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%"   stop-color="rgba(122,158,138,0)"/>
+                  <stop offset="15%"  stop-color="rgba(122,158,138,0.55)"/>
+                  <stop offset="85%"  stop-color="rgba(122,158,138,0.55)"/>
+                  <stop offset="100%" stop-color="rgba(122,158,138,0)"/>
+                </linearGradient>
+              </defs>
+              <polyline id="waveLine" points="" fill="none" stroke="url(#wg)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </div>
+
+        <div class="event-log-wrap">
+          <div class="event-log" id="eventLog">
+            <div class="log-empty" id="logEmpty">
+              <div class="log-empty-glyph">∅</div>
+              <span>No events — connect a MIDI input to begin</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SCRIPTS ═══ -->
+  <div class="page scripts-page" id="page-scripts">
+    <div class="s-sidebar">
+      <div class="s-sidebar-top">
+        <button class="new-script-btn" onclick="newScript()">
+          <span style="font-size:15px;line-height:1">+</span> New Script
+        </button>
+      </div>
+      <div class="s-list" id="sList"></div>
+      <div class="s-sidebar-footer">
+        Scripts run top → bottom on every event.
+      </div>
+    </div>
+
+    <div class="ed-col">
+      <div class="ed-empty" id="edEmpty">
+        <div class="ed-empty-glyph">{ }</div>
+        <div class="ed-empty-txt">No script selected</div>
+        <div class="ed-empty-hint" onclick="newScript()">
+          <span>+</span> Create a new script
+        </div>
+      </div>
+
+      <div id="edPanel" style="display:none;flex:1;flex-direction:column;overflow:hidden;">
+        <div class="ed-hdr">
+          <input class="ed-title" id="edTitle" placeholder="script_name" oninput="onTitleInput()">
+          <button class="ed-btn tog-off" id="togBtn" onclick="toggleActive()">Enable</button>
+          <div class="dsl-ref-toggle" id="dslTogBtn" onclick="toggleDSL()">Ref</div>
+          <button class="ed-btn del" onclick="deleteScript()">Delete</button>
+          <button class="ed-btn save" id="saveBtn" onclick="saveScript()">Save</button>
+        </div>
+
+        <div class="dsl-ref" id="dslRef">
+          <div class="dsl-ref-inner">
+            <div>
+              <div class="dsl-section-title">Variables</div>
+              <div class="dsl-items">
+                <div class="dsl-item"><span class="dsl-kw">event_type</span><span>'note_on' · 'note_off' · 'control_change' · 'pitchwheel' · 'program_change'</span></div>
+                <div class="dsl-item"><span class="dsl-kw">channel</span><span>1–16</span></div>
+                <div class="dsl-item"><span class="dsl-kw">note · velocity</span><span>note_on / note_off &nbsp;·&nbsp; note: 0–127 or use C4, Cs4, Db4…</span></div>
+                <div class="dsl-item"><span class="dsl-kw">cc_num · cc_value</span><span>control_change</span></div>
+                <div class="dsl-item"><span class="dsl-kw">pitch</span><span>pitchwheel &nbsp;(-8192 to +8191)</span></div>
+                <div class="dsl-item"><span class="dsl-kw">program</span><span>program_change</span></div>
+              </div>
+            </div>
+            <div>
+              <div class="dsl-section-title">Helpers</div>
+              <div class="dsl-items">
+                <div class="dsl-item"><span class="dsl-kw">send_note_on</span><span>(note, velocity, channel=None)</span></div>
+                <div class="dsl-item"><span class="dsl-kw">send_note_off</span><span>(note, velocity=0, channel=None)</span></div>
+                <div class="dsl-item"><span class="dsl-kw">send_cc</span><span>(cc_num, value, channel=None)</span></div>
+                <div class="dsl-item"><span class="dsl-kw">send_pitchbend</span><span>(pitch, channel=None)</span></div>
+                <div class="dsl-item"><span class="dsl-kw">send_program_change</span><span>(program, channel=None)</span></div>
+                <div class="dsl-item"><span class="dsl-kw">block()</span><span>suppress original event</span></div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;justify-content:space-between;">
+              <div>
+                <div class="dsl-section-title">Patterns</div>
+                <div class="dsl-items">
+                  <div class="dsl-item" style="color:var(--text-dim);line-height:1.9">
+                    Mutate a var → message rebuilt with new value<br>
+                    send_*() → extra message emitted alongside<br>
+                    block() + send_*() → replace the original<br>
+                    Do nothing → passthrough
+                  </div>
+                </div>
+              </div>
+              <div class="dsl-docs-link" onclick="openDocs()">Full docs &amp; note map →</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── DOCS MODAL ── -->
+        <div class="docs-overlay" id="docsOverlay" onclick="closeDocs()"></div>
+        <div class="docs-modal" id="docsModal">
+          <div class="docs-modal-hdr">
+            <div class="docs-modal-title">MMT Scripting Reference</div>
+            <button class="docs-close" onclick="closeDocs()">✕</button>
+          </div>
+          <div class="docs-modal-body">
+
+            <div class="docs-section">
+              <div class="docs-section-title">How scripts work</div>
+              <p>Each script is a plain Python file that runs on every incoming MIDI event. Variables for the current event are injected into the script's scope — you can read them, mutate them, or call helper functions to emit new messages. Scripts run top to bottom in the order they appear in the sidebar.</p>
+              <p style="margin-top:8px">Scripts are <strong>stateless</strong> — no data persists between events. If you need a toggle or counter, that's not currently supported.</p>
+            </div>
+
+            <div class="docs-section">
+              <div class="docs-section-title">Event variables</div>
+              <table class="docs-table">
+                <tr><th>Variable</th><th>Type</th><th>Available on</th><th>Description</th></tr>
+                <tr><td>event_type</td><td>str</td><td>all</td><td>'note_on', 'note_off', 'control_change', 'pitchwheel', 'program_change'</td></tr>
+                <tr><td>channel</td><td>int</td><td>all</td><td>MIDI channel, 1–16</td></tr>
+                <tr><td>note</td><td>int</td><td>note_on, note_off</td><td>Note number 0–127</td></tr>
+                <tr><td>velocity</td><td>int</td><td>note_on, note_off</td><td>Velocity 0–127</td></tr>
+                <tr><td>cc_num</td><td>int</td><td>control_change</td><td>Controller number 0–127</td></tr>
+                <tr><td>cc_value</td><td>int</td><td>control_change</td><td>Controller value 0–127</td></tr>
+                <tr><td>pitch</td><td>int</td><td>pitchwheel</td><td>Pitch bend value -8192 to +8191. Center (no bend) = 0</td></tr>
+                <tr><td>program</td><td>int</td><td>program_change</td><td>Program number 0–127</td></tr>
+              </table>
+              <p style="margin-top:8px;color:var(--text-dim);font-size:12px">Only read variables that exist for the current event_type, or you'll get a NameError. Always guard with an <code>if event_type ==</code> check first.</p>
+            </div>
+
+            <div class="docs-section">
+              <div class="docs-section-title">Helper functions</div>
+              <table class="docs-table">
+                <tr><th>Function</th><th>Description</th></tr>
+                <tr><td>send_note_on(note, velocity, channel=None)</td><td>Emit a note on. channel defaults to incoming channel.</td></tr>
+                <tr><td>send_note_off(note, velocity=0, channel=None)</td><td>Emit a note off.</td></tr>
+                <tr><td>send_cc(cc_num, value, channel=None)</td><td>Emit a control change.</td></tr>
+                <tr><td>send_pitchbend(pitch, channel=None)</td><td>Emit a pitch bend. pitch: -8192 to +8191.</td></tr>
+                <tr><td>send_program_change(program, channel=None)</td><td>Emit a program change.</td></tr>
+                <tr><td>block()</td><td>Suppress the original event entirely. Nothing is forwarded unless you also call a send_* helper.</td></tr>
+              </table>
+            </div>
+
+            <div class="docs-section">
+              <div class="docs-section-title">Patterns</div>
+              <div class="docs-examples">
+                <div class="docs-example">
+                  <div class="docs-example-label">Mutate — remap a note</div>
+                  <pre>if event_type == 'note_on' and note == 60:
+    note = 62  # C4 → D4</pre>
+                </div>
+                <div class="docs-example">
+                  <div class="docs-example-label">Replace — change event type entirely</div>
+                  <pre>if event_type == 'pitchwheel':
+    send_cc(11, max(0, int(pitch / 8191 * 127)))
+    block()  # suppress original pitch bend</pre>
+                </div>
+                <div class="docs-example">
+                  <div class="docs-example-label">Filter — block specific events</div>
+                  <pre>if event_type == 'note_on' and velocity < 20:
+    block()  # drop ghost notes</pre>
+                </div>
+                <div class="docs-example">
+                  <div class="docs-example-label">Fan out — one event becomes many</div>
+                  <pre>if event_type == 'note_on':
+    send_note_on(note, velocity, channel=1)
+    send_note_on(note + 12, velocity, channel=2)
+    block()  # replace original with both</pre>
+                </div>
+              </div>
+            </div>
+
+            <div class="docs-section">
+              <div class="docs-section-title">Note map</div>
+              <p style="margin-bottom:12px;color:var(--text-dim);font-size:12px">Middle C is C4 = 60. Each octave is 12 semitones. Note name constants are available directly in scripts — <code>note == C5</code> and <code>note == 72</code> are equivalent. Sharps use <code>Cs4</code> (C#4), flats use <code>Db4</code>.</p>
+              <div class="note-map">
+                <div class="note-map-row" id="noteMapRows"></div>
+              </div>
+            </div>
+
+            <div class="docs-section">
+              <div class="docs-section-title">Common CC numbers</div>
+              <table class="docs-table">
+                <tr><th>CC</th><th>Name</th><th>CC</th><th>Name</th></tr>
+                <tr><td>1</td><td>Mod wheel</td><td>11</td><td>Expression</td></tr>
+                <tr><td>2</td><td>Breath controller</td><td>64</td><td>Sustain pedal</td></tr>
+                <tr><td>7</td><td>Volume</td><td>65</td><td>Portamento</td></tr>
+                <tr><td>10</td><td>Pan</td><td>74</td><td>Filter cutoff (common)</td></tr>
+              </table>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="code-wrap">
+          <div class="line-nums" id="lnNums"></div>
+          <textarea class="code-ta" id="codeTA" spellcheck="false"
+            oninput="syncLN()" onkeydown="handleTab(event)"></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Status bar -->
+<div class="status-bar">
+  <div class="sb-item" id="sbIn"><div class="sb-dot"></div><span id="sbInTxt">No input</span></div>
+  <div class="sb-sep">·</div>
+  <div class="sb-item gold"><div class="sb-dot"></div><span id="sbOutTxt">Out: MMT_OUT</span></div>
+  <div class="sb-sep">·</div>
+  <div class="sb-item" id="sbSc"><div class="sb-dot"></div><span id="sbScTxt">0 scripts active</span></div>
+  <div class="sb-sep">·</div>
+  <div class="sb-item"><div class="sb-dot"></div><span id="sbEvTxt">0 events</span></div>
+</div>
+
+<script>
+// ─── PYWEBVIEW BRIDGE ────────────────────────────────────────────────────────
+// All Python calls go through window.pywebview.api.*
+// pywebview isn't ready synchronously, so we wait for the event.
+
+let api = null;
+
+window.addEventListener('pywebviewready', async () => {
+  api = window.pywebview.api;
+
+  // Set output port name in UI
+  const outName = await api.get_output_port_name();
+  document.getElementById('outputChipTxt').textContent = outName;
+  document.getElementById('sbOutTxt').textContent = 'Out: ' + outName;
+
+  // Load scripts from disk
+  await refreshScripts();
+});
+
+async function call(method, ...args) {
+  if (!api) return null;
+  try {
+    return await api[method](...args);
+  } catch (e) {
+    console.error(`API call '${method}' failed:`, e);
+    return null;
+  }
+}
+
+// ─── MIDI EVENT CALLBACK (Python → JS) ──────────────────────────────────────
+// Python calls: window.onMidiEvent({raw: {...}, tx: {...}})
+
+let eventCount = 0;
+let paused     = false;
+const MAX_ROWS = 100;
+let wavePoints = Array(50).fill(17);
+
+const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+function noteName(n) { return NOTE_NAMES[n % 12] + (Math.floor(n / 12) - 1); }
+
+window.onMidiEvent = function(payload) {
+  if (paused) return;
+  const { raw, tx } = payload;
+  eventCount++;
+  document.getElementById('sbEvTxt').textContent = eventCount + ' events';
+
+  updateLiveDisplay(raw, tx);
+  pushWave(raw);
+  addLogRow(raw, tx);
+};
+
+function evLabel(ev) {
+  // Returns a short human-readable primary label
+  if (ev.type === 'note_on')       return noteName(ev.note);
+  if (ev.type === 'note_off')      return noteName(ev.note);
+  if (ev.type === 'control_change') return 'CC ' + ev.cc;
+  if (ev.type === 'pitchwheel')    return (ev.pitch >= 0 ? '+' : '') + ev.pitch;
+  if (ev.type === 'program_change') return 'PC ' + ev.program;
+  return ev.raw || ev.type;
+}
+
+function evTags(ev) {
+  if (ev.type === 'note_on')
+    return tag('note-on','NOTE ON') + tag('meta','vel ' + ev.vel) + tag('meta','ch ' + ev.ch);
+  if (ev.type === 'note_off')
+    return tag('note-off','NOTE OFF') + tag('meta','ch ' + ev.ch);
+  if (ev.type === 'control_change')
+    return tag('cc','CC') + tag('meta','val ' + ev.val) + tag('meta','ch ' + ev.ch);
+  if (ev.type === 'pitchwheel')
+    return tag('pb','PITCH BEND') + tag('meta','ch ' + ev.ch);
+  if (ev.type === 'program_change')
+    return tag('pc','PROG CHANGE') + tag('meta','ch ' + ev.ch);
+  return tag('meta', ev.type);
+}
+
+function tag(cls, txt) {
+  return `<span class="live-tag ${cls}">${esc(txt)}</span>`;
+}
+
+function updateLiveDisplay(raw, tx) {
+  const rawEl  = document.getElementById('liveRaw');
+  const rawDet = document.getElementById('liveRawDetail');
+  const txEl   = document.getElementById('liveTx');
+  const txDet  = document.getElementById('liveTxDetail');
+  const txInd  = document.getElementById('txIndicator');
+
+  rawEl.classList.remove('idle', 'flash');
+  txEl.classList.remove('idle');
+  void rawEl.offsetWidth;
+  rawEl.classList.add('flash');
+
+  rawEl.textContent = evLabel(raw);
+  rawDet.innerHTML  = evTags(raw);
+
+  txEl.textContent = evLabel(tx);
+  txDet.innerHTML  = evTags(tx);
+
+  if (tx.applied) {
+    txInd.textContent  = '→ ' + tx.applied;
+    txInd.className    = 'tx-indicator active';
+  } else {
+    txInd.textContent = 'passthrough';
+    txInd.className   = 'tx-indicator';
+  }
+}
+
+function pushWave(ev) {
+  const amp = (ev.vel !== undefined ? ev.vel / 127
+             : ev.val !== undefined ? ev.val / 127
+             : 0.5);
+  wavePoints.push(17 - amp * 13);
+  if (wavePoints.length > 50) wavePoints.shift();
+  const pts = wavePoints.map((y,i) => `${i*(600/49)},${y}`).join(' ');
+  document.getElementById('waveLine').setAttribute('points', pts);
+}
+
+function addLogRow(raw, tx) {
+  const log   = document.getElementById('eventLog');
+  const empty = document.getElementById('logEmpty');
+  if (empty) empty.style.display = 'none';
+
+  const now  = new Date();
+  const time = pad(now.getMinutes()) + ':' + pad(now.getSeconds()) + '.' + String(now.getMilliseconds()).slice(0,2);
+
+  let dataStr = '';
+  if (raw.type === 'note_on')        dataStr = noteName(raw.note) + ' · vel ' + raw.vel + ' · ch ' + raw.ch;
+  else if (raw.type === 'note_off')  dataStr = noteName(raw.note) + ' · ch ' + raw.ch;
+  else if (raw.type === 'control_change') dataStr = 'CC ' + raw.cc + ' · val ' + raw.val + ' · ch ' + raw.ch;
+  else if (raw.type === 'pitchwheel') dataStr = (raw.pitch>=0?'+':'') + raw.pitch + ' · ch ' + raw.ch;
+  else if (raw.type === 'program_change') dataStr = 'prog ' + raw.program + ' · ch ' + raw.ch;
+  else dataStr = raw.raw || raw.type;
+
+  const typeCls  = {note_on:'note-on', note_off:'note-off', control_change:'cc', pitchwheel:'pb', program_change:'pc'}[raw.type] || 'meta';
+  const typeLabel = raw.type.replace(/_/g,' ').toUpperCase();
+
+  const row = document.createElement('div');
+  row.className = 'log-row' + (tx.applied ? ' transformed' : '');
+  row.innerHTML = `
+    <div class="log-idx">${eventCount}</div>
+    <div class="log-time">${time}</div>
+    <div class="log-data">${tag(typeCls, typeLabel)}</div>
+    <div class="log-data">${esc(dataStr)}</div>
+    <div class="log-tx ${tx.applied ? 'has-tx' : ''}">${tx.applied ? esc('→ '+tx.applied) : ''}</div>
+  `;
+  log.prepend(row);
+
+  const rows = log.querySelectorAll('.log-row');
+  if (rows.length > MAX_ROWS) rows[rows.length - 1].remove();
+}
+
+// Idle waveform drift
+;(function driftWave() {
+  wavePoints.push(17 + (Math.random() - 0.5) * 1.2);
+  if (wavePoints.length > 50) wavePoints.shift();
+  const pts = wavePoints.map((y,i) => `${i*(600/49)},${y}`).join(' ');
+  document.getElementById('waveLine').setAttribute('points', pts);
+  setTimeout(driftWave, 200 + Math.random()*200);
+})();
+
+// ─── PAGE NAV ────────────────────────────────────────────────────────────────
+function goPage(id, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  el.classList.add('active');
+}
+
+// ─── ORB / PORT PICKER ───────────────────────────────────────────────────────
+let ddOpen = false;
+
+function toggleDD() {
+  ddOpen = !ddOpen;
+  if (ddOpen) {
+    openDD();
+  } else {
+    document.getElementById('orbDD').style.display = 'none';
+  }
+}
+
+let availablePorts = []; // [{ full, display }, ...]
+
+async function openDD() {
+  const dd   = document.getElementById('orbDD');
+  const rows = document.getElementById('ddRows');
+  rows.innerHTML = '<div class="dd-empty">Scanning ports…</div>';
+  dd.style.display = 'block';
+
+  availablePorts = await call('get_input_ports') || [];
+
+  if (availablePorts.length === 0) {
+    rows.innerHTML = '<div class="dd-empty">No MIDI inputs found</div>';
+    return;
+  }
+
+  // Use index into availablePorts — avoids any string-escaping issues in onclick
+  rows.innerHTML = availablePorts.map((p, i) => `
+    <div class="dd-row" data-port-index="${i}">
+      <div class="dd-dot"></div>
+      <div class="dd-name">${esc(p.display)}</div>
+    </div>
+  `).join('');
+
+  // Attach listeners properly — no inline string args
+  rows.querySelectorAll('.dd-row').forEach(row => {
+    row.addEventListener('click', e => {
+      e.stopPropagation(); // don't let the outside-click handler interfere
+      const idx = parseInt(row.dataset.portIndex, 10);
+      pickPort(availablePorts[idx]);
+    });
+  });
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('#orbWrap')) {
+    setTimeout(() => {
+      document.getElementById('orbDD').style.display = 'none';
+      ddOpen = false;
+    }, 150);
+  }
+});
+
+async function pickPort(port) {
+  document.getElementById('orbDD').style.display = 'none';
+  ddOpen = false;
+
+  // Update UI immediately — don't gate on the API response
+  document.getElementById('orb').classList.add('connected');
+  document.getElementById('orbLabel').textContent = port.display;
+  document.getElementById('orbSub').textContent = 'connected';
+  document.getElementById('navLed').classList.add('on');
+  document.getElementById('navTxt').textContent = port.display;
+
+  const chip = document.getElementById('inputChip');
+  chip.classList.add('active-chip');
+  document.getElementById('inputChipTxt').textContent = port.display;
+  document.getElementById('sbIn').classList.add('green');
+  document.getElementById('sbInTxt').textContent = 'In: ' + port.display;
+
+  // Fire the Python call after UI is already updated
+  const ok = await call('set_input', port.full);
+  if (!ok) {
+    // Revert UI if connection actually failed
+    document.getElementById('orb').classList.remove('connected');
+    document.getElementById('orbLabel').innerHTML = 'Select a port<br>to begin';
+    document.getElementById('orbSub').textContent = 'click to choose';
+    document.getElementById('navLed').classList.remove('on');
+    document.getElementById('navTxt').textContent = 'No input';
+    chip.classList.remove('active-chip');
+    document.getElementById('inputChipTxt').textContent = 'No input';
+    document.getElementById('sbIn').classList.remove('green');
+    document.getElementById('sbInTxt').textContent = 'No input';
+  }
+}
+
+// ─── FEED CONTROLS ───────────────────────────────────────────────────────────
+function togglePause() {
+  paused = !paused;
+  const btn = document.getElementById('pauseBtn');
+  btn.textContent = paused ? 'Resume' : 'Pause';
+  btn.classList.toggle('active', paused);
+}
+
+function clearLog() {
+  eventCount = 0;
+  document.getElementById('sbEvTxt').textContent = '0 events';
+  document.getElementById('eventLog').innerHTML =
+    '<div class="log-empty" id="logEmpty"><div class="log-empty-glyph">∅</div><span>No events — connect a MIDI input to begin</span></div>';
+  wavePoints = Array(50).fill(17);
+  document.getElementById('waveLine').setAttribute('points','');
+  document.getElementById('liveRaw').textContent = 'waiting…';
+  document.getElementById('liveRaw').className = 'live-event-main idle';
+  document.getElementById('liveRawDetail').innerHTML = '';
+  document.getElementById('liveTx').textContent = '—';
+  document.getElementById('liveTx').className = 'live-event-main idle';
+  document.getElementById('liveTxDetail').innerHTML = '';
+  document.getElementById('txIndicator').textContent = 'passthrough';
+  document.getElementById('txIndicator').className = 'tx-indicator';
+}
+
+// ─── SCRIPTS ─────────────────────────────────────────────────────────────────
+let scripts     = [];   // [{name, code, enabled}]
+let activeId    = null; // index into scripts[]
+let dslOpen     = false;
+let pendingName = null; // tracks unsaved title rename
+
+async function refreshScripts() {
+  scripts = await call('get_scripts') || [];
+  renderScriptList();
+  updateScriptCounts();
+
+  // If editing script is gone, clear editor
+  if (activeId !== null && !scripts[activeId]) {
+    activeId = null;
+    showEditorEmpty();
+  }
+}
+
+function renderScriptList() {
+  document.getElementById('sList').innerHTML = scripts.map((s, i) => `
+    <div class="s-item ${activeId === i ? 'active' : ''}" onclick="openScript(${i})">
+      <div class="ptog ${s.enabled ? 'on' : ''}" onclick="togScript(${i}, event)"></div>
+      <div class="s-name">${esc(s.name)}</div>
+    </div>
+  `).join('');
+}
+
+function updateScriptCounts() {
+  const on = scripts.filter(s => s.enabled).length;
+  const txt = on + ' script' + (on !== 1 ? 's' : '') + ' active';
+  document.getElementById('navBadge').textContent = txt;
+  document.getElementById('sbScTxt').textContent = txt;
+  document.getElementById('scriptsChipTxt').textContent = txt;
+
+  const chip = document.getElementById('scriptsChip');
+  if (on > 0) chip.classList.add('scripts-active');
+  else chip.classList.remove('scripts-active');
+}
+
+async function togScript(i, e) {
+  e.stopPropagation();
+  const s = scripts[i];
+  if (!s) return;
+  s.enabled = !s.enabled;
+  renderScriptList();
+  updateScriptCounts();
+  await call('set_script_enabled', s.name, s.enabled);
+  if (activeId === i) syncEditorHeader();
+}
+
+function openScript(i) {
+  activeId = i;
+  const s = scripts[i];
+  if (!s) return;
+  document.getElementById('edEmpty').style.display = 'none';
+  document.getElementById('edPanel').style.display = 'flex';
+  document.getElementById('edTitle').value = s.name;
+  document.getElementById('codeTA').value  = s.code;
+  pendingName = s.name;
+  syncLN();
+  syncEditorHeader();
+  renderScriptList();
+}
+
+function showEditorEmpty() {
+  document.getElementById('edEmpty').style.display = 'flex';
+  document.getElementById('edPanel').style.display = 'none';
+}
+
+function syncEditorHeader() {
+  if (activeId === null) return;
+  const s = scripts[activeId];
+  if (!s) return;
+  const btn = document.getElementById('togBtn');
+  btn.textContent = s.enabled ? 'Disable' : 'Enable';
+  btn.className   = 'ed-btn ' + (s.enabled ? 'tog-on' : 'tog-off');
+}
+
+async function toggleActive() {
+  if (activeId === null) return;
+  const s = scripts[activeId];
+  s.enabled = !s.enabled;
+  syncEditorHeader();
+  renderScriptList();
+  updateScriptCounts();
+  await call('set_script_enabled', s.name, s.enabled);
+}
+
+function onTitleInput() {
+  // Only updates local display; actual rename happens on Save
+  const val = document.getElementById('edTitle').value;
+  if (activeId !== null) {
+    scripts[activeId].name = val;
+    renderScriptList();
+  }
+}
+
+async function saveScript() {
+  if (activeId === null) return;
+  const s    = scripts[activeId];
+  const name = document.getElementById('edTitle').value.trim().replace(/\.py$/,'').replace(/\s+/g,'_') || 'untitled';
+  const code = document.getElementById('codeTA').value;
+
+  // If name changed, rename on disk first
+  if (pendingName && pendingName !== name) {
+    await call('rename_script', pendingName, name);
+  }
+
+  await call('save_script', name, code);
+
+  pendingName    = name;
+  s.name = name;
+  s.code = code;
+  renderScriptList();
+
+  const btn = document.getElementById('saveBtn');
+  btn.textContent = '✓ Saved';
+  btn.style.color = 'var(--sage)';
+  setTimeout(() => { btn.textContent = 'Save'; btn.style.color = ''; }, 1600);
+}
+
+async function deleteScript() {
+  if (activeId === null) return;
+  const s = scripts[activeId];
+  await call('delete_script', s.name);
+  activeId = null;
+  showEditorEmpty();
+  await refreshScripts();
+}
+
+async function newScript() {
+  const starter = 'if event_type == \'note_on\':\n    pass\n';
+  const name = 'new_script_' + Date.now();
+  await call('save_script', name, starter);
+  await refreshScripts();
+  const idx = scripts.findIndex(s => s.name === name);
+  if (idx !== -1) openScript(idx);
+}
+
+// ─── CODE EDITOR HELPERS ─────────────────────────────────────────────────────
+function syncLN() {
+  const n = document.getElementById('codeTA').value.split('\n').length;
+  document.getElementById('lnNums').innerHTML =
+    Array.from({length:n}, (_,i) => `<div>${i+1}</div>`).join('');
+}
+
+function handleTab(e) {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const t = e.target, s = t.selectionStart;
+    t.value = t.value.slice(0,s) + '  ' + t.value.slice(t.selectionEnd);
+    t.selectionStart = t.selectionEnd = s + 2;
+    syncLN();
+  }
+}
+
+function toggleDSL() {
+  dslOpen = !dslOpen;
+  document.getElementById('dslRef').classList.toggle('open', dslOpen);
+  document.getElementById('dslTogBtn').classList.toggle('open', dslOpen);
+}
+
+// ─── WINDOW CONTROLS ─────────────────────────────────────────────────────────
+function winMinimize() { if (api) api.minimize(); }
+function hideToTray()  { if (api) api.hide_to_tray(); }
+function winClose()    { if (api) api.close_window(); }
+
+let isMaximized = false;
+function winMaximize() {
+  if (!api) return;
+  if (isMaximized) {
+    api.restore();
+    isMaximized = false;
+    document.getElementById('maxBtn').textContent = '▭';
+    document.getElementById('maxBtn').title = 'Restore';
+  } else {
+    api.maximize();
+    isMaximized = true;
+    document.getElementById('maxBtn').textContent = '❐';
+    document.getElementById('maxBtn').title = 'Maximize';
+  }
+}
+
+// ─── DRAG ────────────────────────────────────────────────────────────────────
+// Manual drag on nav bar — needed because easy_drag=False and
+// -webkit-app-region doesn't work with pywebview's EdgeChromium backend.
+// Ignore mousedown on interactive elements (buttons, tabs, inputs).
+
+const DRAG_EXCLUDE = new Set(['BUTTON','INPUT','SELECT','TEXTAREA']);
+
+document.querySelector('nav').addEventListener('mousedown', e => {
+  if (DRAG_EXCLUDE.has(e.target.tagName)) return;
+  if (e.target.closest('.nav-tabs, .win-controls, .nav-scripts-badge, .nav-status')) return;
+  if (e.button !== 0) return;
+
+  // Double-click to maximize/restore
+  if (e.detail === 2) { winMaximize(); return; }
+
+  const startX = e.screenX;
+  const startY = e.screenY;
+  const startWinX = window.screenX;
+  const startWinY = window.screenY;
+  let moved = false;
+
+  function onMove(e) {
+    const dx = e.screenX - startX;
+    const dy = e.screenY - startY;
+    if (!moved && Math.abs(dx) < 3 && Math.abs(dy) < 3) return;
+    moved = true;
+    if (api) api.move_window(startWinX + dx, startWinY + dy);
+  }
+
+  function onUp() {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  }
+
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+});
+
+
+// ─── RESIZE HANDLES ──────────────────────────────────────────────────────────
+// On mousedown on a resize handle, stream mousemove deltas to Python
+// which calls window.resize() / window.move() accordingly.
+
+document.querySelectorAll('.resize-handle').forEach(handle => {
+  handle.addEventListener('mousedown', e => {
+    e.preventDefault();
+    const dir = handle.dataset.dir;
+    const startX = e.screenX;
+    const startY = e.screenY;
+
+    // Snapshot current geometry
+    const startW = window.outerWidth;
+    const startH = window.outerHeight;
+    const startL = window.screenX;
+    const startT = window.screenY;
+
+    function onMove(e) {
+      const dx = e.screenX - startX;
+      const dy = e.screenY - startY;
+
+      let newW = startW, newH = startH, newL = startL, newT = startT;
+
+      if (dir.includes('e')) newW = Math.max(800, startW + dx);
+      if (dir.includes('s')) newH = Math.max(540, startH + dy);
+      if (dir.includes('w')) { newW = Math.max(800, startW - dx); newL = startL + (startW - newW); }
+      if (dir.includes('n')) { newH = Math.max(540, startH - dy); newT = startT + (startH - newH); }
+
+      if (api) api.resize_window(newW, newH, newL, newT);
+    }
+
+    function onUp() {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    }
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+});
+
+
+function openDocs() {
+  document.getElementById('docsOverlay').classList.add('open');
+  document.getElementById('docsModal').classList.add('open');
+}
+function closeDocs() {
+  document.getElementById('docsOverlay').classList.remove('open');
+  document.getElementById('docsModal').classList.remove('open');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDocs(); });
+
+// Generate note map C0–G9
+;(function buildNoteMap() {
+  const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+  const container = document.getElementById('noteMapRows');
+  if (!container) return;
+  let html = '';
+  for (let n = 0; n <= 127; n++) {
+    const name = NOTE_NAMES[n % 12];
+    const octave = Math.floor(n / 12) - 1;
+    const isSharp = name.includes('#');
+    html += `<div class="note-cell ${isSharp ? 'sharp' : ''}">
+      <div class="note-cell-name">${name}${octave}</div>
+      <div class="note-cell-num">${n}</div>
+    </div>`;
+  }
+  container.innerHTML = html;
+})();
+
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function pad(n) { return String(n).padStart(2,'0'); }
+</script>
+</body>
+</html>
