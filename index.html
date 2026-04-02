@@ -200,8 +200,25 @@ nav {
 .orb.disconnected .orb-label { color: #e07070; font-style: normal; }
 .orb-eyebrow { font-family: var(--mono); font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-dim); }
 .orb-icon { font-size: 24px; color: var(--text-dim); transition: color 0.35s; }
-.orb-label { font-size: 15px; font-weight: 300; font-style: italic; color: var(--text-mid); text-align: center; line-height: 1.3; padding: 0 20px; transition: color 0.35s; max-width: 175px; }
-.orb-sub { font-family: var(--mono); font-size: 9px; color: var(--text-dim); letter-spacing: 0.08em; }
+.orb-label {
+  font-size: 15px; font-weight: 300; font-style: italic;
+  color: var(--text-mid); text-align: center; line-height: 1.3;
+  padding: 0 20px; transition: color 0.35s;
+  max-width: 175px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.orb-sub {
+  font-family: var(--mono); font-size: 9px; color: var(--text-dim);
+  letter-spacing: 0.08em;
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+  padding: 0 12px;
+}
 
 /* Dropdown */
 .orb-dropdown {
@@ -1109,8 +1126,8 @@ window.onMidiDisconnected = function() {
   const name = document.getElementById('orbLabel').textContent;
   orb.classList.remove('connected');
   orb.classList.add('disconnected');
-  document.getElementById('orbLabel').textContent = name; // keep device name
-  document.getElementById('orbSub').textContent = 'disconnected — click to reconnect';
+  document.getElementById('orbLabel').textContent = name;
+  document.getElementById('orbSub').textContent = 'disconnected · click to reconnect';
   document.getElementById('navLed').classList.remove('on');
   document.getElementById('navTxt').textContent = 'Disconnected';
 
@@ -1118,6 +1135,7 @@ window.onMidiDisconnected = function() {
   chip.classList.remove('active-chip');
   chip.style.borderColor = 'rgba(193,90,90,0.2)';
   chip.style.color = '#e07070';
+  document.getElementById('inputChipTxt').textContent = 'Disconnected';
   document.getElementById('sbIn').classList.remove('green');
   document.getElementById('sbInTxt').textContent = 'Disconnected';
 };
