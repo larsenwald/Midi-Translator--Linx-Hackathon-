@@ -235,9 +235,10 @@ class ScriptEngine:
                     code = f.read()
                 name = fname[:-3]
                 self.scripts.append({
-                    "name":    name,
-                    "code":    code,
-                    "enabled": enabled_states.get(name, True),
+                    "name":       name,
+                    "code":       code,
+                    "enabled":    enabled_states.get(name, True),
+                    "last_error": None,
                 })
                 print(f"[Scripts] Loaded: {fname}")
             except Exception as e:
@@ -359,7 +360,12 @@ class ScriptEngine:
             try:
                 exec(script["code"], ctx)
             except Exception as e:
+                import traceback
+                err_str = traceback.format_exc().strip()
+                script["last_error"] = err_str
                 print(f"[Scripts] Error in '{script['name']}': {e}")
+            else:
+                script["last_error"] = None
             if (len(extra_msgs) > n_extra_before
                     or blocked[0] != blocked_before
                     or self._mutated(ctx, msg)):
@@ -432,7 +438,8 @@ class API:
         return OUTPUT_PORT_NAME
 
     def get_scripts(self):
-        return [{"name": s["name"], "code": s["code"], "enabled": s["enabled"]}
+        return [{"name": s["name"], "code": s["code"], "enabled": s["enabled"],
+                 "last_error": s.get("last_error")}
                 for s in self.engine.scripts]
 
     def save_script(self, name, code):
@@ -541,7 +548,18 @@ def monitor_loop(midi: MidiHandler, engine: ScriptEngine, api: API):
             raw_ev = msg_to_event(msg, None)
             tx_ev  = msg_to_event(out_msgs[0], applied) if out_msgs else raw_ev
 
-            payload = json.dumps({"raw": raw_ev, "tx": tx_ev})
+            # Collect any script errors to push to the UI
+            script_errors = {
+                s["name"]: s["last_error"]
+                for s in engine.scripts
+                if s.get("last_error")
+            }
+
+            payload = json.dumps({
+                "raw": raw_ev,
+                "tx":  tx_ev,
+                "script_errors": script_errors,
+            })
 
             if api._window:
                 try:

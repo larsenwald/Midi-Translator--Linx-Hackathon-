@@ -400,8 +400,16 @@ nav {
 .name-error.visible-error  { height: 30px; color: #e07070; border-color: rgba(193,90,90,0.15);  background: rgba(193,90,90,0.05); }
 .name-error.visible-saved  { height: 30px; color: var(--sage); border-color: rgba(122,158,138,0.15); background: rgba(122,158,138,0.05); }
 
+.script-error-panel { flex-shrink: 0; border-bottom: 1px solid rgba(193,90,90,0.2); background: rgba(193,90,90,0.05); }
+.script-error-hdr { display: flex; align-items: center; justify-content: space-between; padding: 6px 22px; border-bottom: 1px solid rgba(193,90,90,0.1); }
+.script-error-label { font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: #e07070; }
+.script-error-dismiss { font-size: 10px; color: rgba(224,112,112,0.5); cursor: pointer; transition: color 0.15s; }
+.script-error-dismiss:hover { color: #e07070; }
+.script-error-body { margin: 0; padding: 10px 22px 12px; font-family: var(--mono); font-size: 10px; line-height: 1.7; color: rgba(224,112,112,0.8); white-space: pre-wrap; word-break: break-all; max-height: 120px; overflow-y: auto; }
+
+.s-error-dot { width: 6px; height: 6px; border-radius: 50%; background: #e07070; flex-shrink: 0; box-shadow: 0 0 5px rgba(224,112,112,0.5); }
+
 .unsaved-dot { font-size: 7px; color: var(--gold); margin-left: 5px; vertical-align: middle; opacity: 0.8; }
-.s-item.active .unsaved-dot { color: var(--gold); }
 
 /* AI generate button variant */
 .ai-btn { border-color: rgba(160,120,144,0.25); color: var(--mauve); }
@@ -681,6 +689,13 @@ nav {
           <button class="ed-btn save" id="saveBtn" onclick="saveScript()">Save</button>
         </div>
         <div class="name-error" id="nameError"></div>
+        <div class="script-error-panel" id="scriptErrorPanel" style="display:none">
+          <div class="script-error-hdr">
+            <span class="script-error-label">⚠ Script error</span>
+            <span class="script-error-dismiss" onclick="dismissScriptError()">✕</span>
+          </div>
+          <pre class="script-error-body" id="scriptErrorBody"></pre>
+        </div>
 
         <div class="dsl-ref" id="dslRef">
           <div class="dsl-ref-inner">
@@ -933,11 +948,36 @@ let wavePoints = Array(50).fill(17);
 const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 function noteName(n) { return NOTE_NAMES[n % 12] + (Math.floor(n / 12) - 1); }
 
+// script errors map: { scriptName: errorString }
+let scriptErrors = {};
+
 window.onMidiEvent = function(payload) {
   if (paused) return;
-  const { raw, tx } = payload;
+  const { raw, tx, script_errors } = payload;
   eventCount++;
   document.getElementById('sbEvTxt').textContent = eventCount + ' events';
+
+  // Update stored errors and reflect in UI
+  if (script_errors) {
+    let changed = false;
+    // Set new errors
+    for (const [name, err] of Object.entries(script_errors)) {
+      if (scriptErrors[name] !== err) { scriptErrors[name] = err; changed = true; }
+    }
+    // Clear errors for scripts that recovered
+    for (const name of Object.keys(scriptErrors)) {
+      if (!(name in script_errors)) { delete scriptErrors[name]; changed = true; }
+    }
+    if (changed) {
+      renderScriptList();
+      // If active script just got an error, show it
+      if (activeId !== null && scripts[activeId]) {
+        const activeName = scripts[activeId].name;
+        if (script_errors[activeName]) showScriptError(script_errors[activeName]);
+        else hideScriptError();
+      }
+    }
+  }
 
   updateLiveDisplay(raw, tx);
   pushWave(raw);
@@ -1180,10 +1220,14 @@ let pendingName = null; // tracks unsaved title rename
 
 async function refreshScripts() {
   scripts = await call('get_scripts') || [];
+  // Sync error map from initial load
+  scriptErrors = {};
+  for (const s of scripts) {
+    if (s.last_error) scriptErrors[s.name] = s.last_error;
+  }
   renderScriptList();
   updateScriptCounts();
 
-  // If editing script is gone, clear editor
   if (activeId !== null && !scripts[activeId]) {
     activeId = null;
     showEditorEmpty();
@@ -1192,14 +1236,34 @@ async function refreshScripts() {
 
 function renderScriptList() {
   document.getElementById('sList').innerHTML = scripts.map((s, i) => {
-    const isActive   = activeId === i;
-    const showDot    = isActive && hasUnsavedChanges;
+    const isActive  = activeId === i;
+    const showDot   = isActive && hasUnsavedChanges;
+    const hasError  = !!scriptErrors[s.name];
     return `
     <div class="s-item ${isActive ? 'active' : ''}" onclick="openScript(${i})">
       <div class="ptog ${s.enabled ? 'on' : ''}" onclick="togScript(${i}, event)"></div>
       <div class="s-name">${esc(s.name)}${showDot ? '<span class="unsaved-dot" title="Unsaved changes">●</span>' : ''}</div>
+      ${hasError ? '<div class="s-error-dot" title="Script error"></div>' : ''}
     </div>`;
   }).join('');
+}
+
+function showScriptError(msg) {
+  document.getElementById('scriptErrorBody').textContent = msg;
+  document.getElementById('scriptErrorPanel').style.display = 'block';
+}
+
+function hideScriptError() {
+  document.getElementById('scriptErrorPanel').style.display = 'none';
+}
+
+function dismissScriptError() {
+  // Dismiss clears the stored error so it won't re-show until the script errors again
+  if (activeId !== null && scripts[activeId]) {
+    delete scriptErrors[scripts[activeId].name];
+    renderScriptList();
+  }
+  hideScriptError();
 }
 
 function updateScriptCounts() {
@@ -1237,6 +1301,12 @@ function openScript(i) {
   pendingName = s.name;
   syncLN();
   syncEditorHeader();
+  clearNameError();
+
+  // Show or hide error panel based on current error state for this script
+  if (scriptErrors[s.name]) showScriptError(scriptErrors[s.name]);
+  else hideScriptError();
+
   renderScriptList();
 }
 
