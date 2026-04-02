@@ -598,7 +598,34 @@ def monitor_loop(midi: MidiHandler, engine: ScriptEngine, api: API):
         time.sleep(0.001)
 
 
-def get_hwnd(window):
+def port_watchdog(midi: MidiHandler, api: API):
+    """Poll the OS port list every second. If the connected port vanishes, signal JS."""
+    while True:
+        time.sleep(1)
+        with midi._lock:
+            port = midi.input_port
+            connected_name = getattr(port, 'name', None) if port else None
+        if connected_name:
+            try:
+                available = mido.get_input_names()
+            except Exception:
+                continue
+            still_there = any(
+                connected_name in n or n in connected_name
+                for n in available
+            )
+            if not still_there:
+                with midi._lock:
+                    midi.input_port = None
+                print(f"[MIDI] Port vanished: {connected_name}")
+                if api._window:
+                    try:
+                        api._window.evaluate_js("window.onMidiDisconnected()")
+                    except Exception:
+                        pass
+
+
+
     """Get the native Win32 window handle from a pywebview window."""
     try:
         return window.gui.window.wid   # pywebview 4.x EdgeChromium
@@ -715,6 +742,9 @@ def main():
 
     t = threading.Thread(target=monitor_loop, args=(midi, engine, api), daemon=True)
     t.start()
+
+    w = threading.Thread(target=port_watchdog, args=(midi, api), daemon=True)
+    w.start()
 
     webview.start(debug=False)
 
