@@ -606,8 +606,9 @@ nav {
   border: 1.5px solid rgba(201,169,110,0.15);
   border-top-color: var(--gold);
   border-radius: 50%;
-  animation: spin 0.7s linear infinite;
+  animation: splashSpin 0.7s linear infinite;
 }
+@keyframes splashSpin { to { transform: rotate(360deg); } }
 .splash-check { color: var(--sage);  font-size: 12px; line-height: 1; }
 .splash-cross { color: #e07070;      font-size: 12px; line-height: 1; }
 
