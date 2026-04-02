@@ -427,6 +427,40 @@ class ScriptEngine:
         return False
 
 
+# ─── WIN32 HELPERS ──────────────────────────────────────────────────────────────
+
+def get_hwnd(window):
+    """Get the native Win32 window handle from a pywebview window."""
+    try:
+        return window.gui.window.wid   # pywebview 4.x EdgeChromium
+    except AttributeError:
+        pass
+    try:
+        return win32gui.FindWindow(None, window.title)
+    except Exception:
+        return None
+
+def hide_to_tray(hwnd):
+    """Remove from taskbar by stripping WS_EX_APPWINDOW and adding WS_EX_TOOLWINDOW."""
+    if not hwnd:
+        return
+    ex_style = win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE)
+    ex_style &= ~win32con.WS_EX_APPWINDOW
+    ex_style |=  win32con.WS_EX_TOOLWINDOW
+    win32gui.ShowWindow(hwnd, win32con.SW_HIDE)
+    win32gui.SetWindowLong(hwnd, win32con.GWL_EXSTYLE, ex_style)
+
+def show_from_tray(hwnd):
+    """Restore taskbar presence and bring window back."""
+    if not hwnd:
+        return
+    ex_style = win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE)
+    ex_style |=  win32con.WS_EX_APPWINDOW
+    ex_style &= ~win32con.WS_EX_TOOLWINDOW
+    win32gui.SetWindowLong(hwnd, win32con.GWL_EXSTYLE, ex_style)
+    win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+    win32gui.SetForegroundWindow(hwnd)
+
 # ─── PYWEBVIEW API ────────────────────────────────────────────────────────────
 
 class API:
@@ -624,38 +658,6 @@ def port_watchdog(midi: MidiHandler, api: API):
                     except Exception:
                         pass
 
-
-
-    """Get the native Win32 window handle from a pywebview window."""
-    try:
-        return window.gui.window.wid   # pywebview 4.x EdgeChromium
-    except AttributeError:
-        pass
-    try:
-        return win32gui.FindWindow(None, window.title)
-    except Exception:
-        return None
-
-def hide_to_tray(hwnd):
-    """Remove from taskbar by stripping WS_EX_APPWINDOW and adding WS_EX_TOOLWINDOW."""
-    if not hwnd:
-        return
-    ex_style = win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE)
-    ex_style &= ~win32con.WS_EX_APPWINDOW
-    ex_style |=  win32con.WS_EX_TOOLWINDOW
-    win32gui.ShowWindow(hwnd, win32con.SW_HIDE)
-    win32gui.SetWindowLong(hwnd, win32con.GWL_EXSTYLE, ex_style)
-
-def show_from_tray(hwnd):
-    """Restore taskbar presence and bring window back."""
-    if not hwnd:
-        return
-    ex_style = win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE)
-    ex_style |=  win32con.WS_EX_APPWINDOW
-    ex_style &= ~win32con.WS_EX_TOOLWINDOW
-    win32gui.SetWindowLong(hwnd, win32con.GWL_EXSTYLE, ex_style)
-    win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
-    win32gui.SetForegroundWindow(hwnd)
 
 
 

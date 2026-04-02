@@ -211,14 +211,14 @@ nav {
 }
 .orb-sub {
   font-family: var(--mono); font-size: 9px; color: var(--text-dim);
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   max-width: 190px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   text-align: center;
-  padding: 0 12px;
+  padding: 0 16px;
+  line-height: 1.5;
+  word-break: break-word;
 }
+.orb.disconnected .orb-sub { color: rgba(224,112,112,0.6); }
 
 /* Dropdown */
 .orb-dropdown {
@@ -1122,12 +1122,12 @@ function addLogRow(raw, tx) {
 
 // Called by Python when the input port dies
 window.onMidiDisconnected = function() {
-  const orb  = document.getElementById('orb');
-  const name = document.getElementById('orbLabel').textContent;
+  const orb        = document.getElementById('orb');
+  const deviceName = document.getElementById('orbLabel').textContent;
   orb.classList.remove('connected');
   orb.classList.add('disconnected');
-  document.getElementById('orbLabel').textContent = name;
-  document.getElementById('orbSub').textContent = 'disconnected · click to reconnect';
+  document.getElementById('orbLabel').textContent = 'Disconnected';
+  document.getElementById('orbSub').textContent   = deviceName + ' · click to reconnect';
   document.getElementById('navLed').classList.remove('on');
   document.getElementById('navTxt').textContent = 'Disconnected';
 
