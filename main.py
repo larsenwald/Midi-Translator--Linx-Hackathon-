@@ -223,11 +223,18 @@ class ScriptEngine:
     def load_scripts(self):
         self.scripts = []
         try:
-            files = sorted(f for f in os.listdir(SCRIPTS_DIR) if f.endswith(".py"))
+            files = [f for f in os.listdir(SCRIPTS_DIR) if f.endswith(".py")]
         except Exception:
             files = []
         cfg = load_config()
         enabled_states = cfg.get("script_enabled", {})
+        order = cfg.get("script_order", [])
+
+        # Sort files by saved order; unknowns appended alphabetically at the end
+        ordered = [n + ".py" for n in order if (n + ".py") in files]
+        remaining = sorted(f for f in files if f not in ordered)
+        files = ordered + remaining
+
         for fname in files:
             path = os.path.join(SCRIPTS_DIR, fname)
             try:
@@ -456,6 +463,16 @@ class API:
 
     def set_script_enabled(self, name, enabled):
         self.engine.set_enabled(name, enabled)
+        return True
+
+    def set_script_order(self, names):
+        """Persist the script pipeline order and reorder in memory."""
+        cfg = load_config()
+        cfg["script_order"] = names
+        save_config(cfg)
+        # Reorder in-memory scripts to match
+        order_map = {n: i for i, n in enumerate(names)}
+        self.engine.scripts.sort(key=lambda s: order_map.get(s["name"], 9999))
         return True
 
     def get_api_key_set(self):

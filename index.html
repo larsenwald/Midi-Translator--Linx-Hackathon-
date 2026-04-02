@@ -407,6 +407,20 @@ nav {
 .script-error-dismiss:hover { color: #e07070; }
 .script-error-body { margin: 0; padding: 10px 22px 12px; font-family: var(--mono); font-size: 10px; line-height: 1.7; color: rgba(224,112,112,0.8); white-space: pre-wrap; word-break: break-all; max-height: 120px; overflow-y: auto; }
 
+.s-drag-handle {
+  font-size: 11px;
+  color: var(--text-xdim);
+  cursor: grab;
+  flex-shrink: 0;
+  padding: 0 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  user-select: none;
+  line-height: 1;
+}
+.s-item:hover .s-drag-handle { opacity: 1; }
+.s-drag-handle:active { cursor: grabbing; }
+
 .s-error-dot { width: 6px; height: 6px; border-radius: 50%; background: #e07070; flex-shrink: 0; box-shadow: 0 0 5px rgba(224,112,112,0.5); }
 
 .unsaved-dot { font-size: 7px; color: var(--gold); margin-left: 5px; vertical-align: middle; opacity: 0.8; }
@@ -1240,12 +1254,98 @@ function renderScriptList() {
     const showDot   = isActive && hasUnsavedChanges;
     const hasError  = !!scriptErrors[s.name];
     return `
-    <div class="s-item ${isActive ? 'active' : ''}" onclick="openScript(${i})">
+    <div class="s-item ${isActive ? 'active' : ''}" data-idx="${i}" onclick="openScript(${i})">
+      <div class="s-drag-handle" data-idx="${i}" title="Drag to reorder">⠿</div>
       <div class="ptog ${s.enabled ? 'on' : ''}" onclick="togScript(${i}, event)"></div>
       <div class="s-name">${esc(s.name)}${showDot ? '<span class="unsaved-dot" title="Unsaved changes">●</span>' : ''}</div>
       ${hasError ? '<div class="s-error-dot" title="Script error"></div>' : ''}
     </div>`;
   }).join('');
+
+  // Attach drag listeners to handles
+  document.querySelectorAll('.s-drag-handle').forEach(handle => {
+    handle.addEventListener('mousedown', onDragHandleDown);
+  });
+}
+
+// ── Drag-to-reorder ──
+let dragIdx    = null;   // index being dragged
+let dragGhost  = null;   // floating clone element
+let dragList   = null;   // copy of scripts[] order during drag
+
+function onDragHandleDown(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  dragIdx  = parseInt(e.currentTarget.dataset.idx, 10);
+  dragList = [...scripts];
+
+  const sList  = document.getElementById('sList');
+  const items  = [...sList.querySelectorAll('.s-item')];
+  const srcEl  = items[dragIdx];
+  const srcRect = srcEl.getBoundingClientRect();
+
+  // Ghost
+  dragGhost = srcEl.cloneNode(true);
+  dragGhost.style.cssText = `
+    position: fixed;
+    left: ${srcRect.left}px;
+    top: ${srcRect.top}px;
+    width: ${srcRect.width}px;
+    opacity: 0.85;
+    pointer-events: none;
+    z-index: 999;
+    border-radius: 7px;
+    background: var(--gold-s);
+    border: 1px solid rgba(201,169,110,0.3);
+  `;
+  document.body.appendChild(dragGhost);
+  srcEl.style.opacity = '0.3';
+
+  const offsetY = e.clientY - srcRect.top;
+
+  function onMove(e) {
+    dragGhost.style.top = (e.clientY - offsetY) + 'px';
+
+    const ghostCY = e.clientY - offsetY + srcRect.height / 2;
+    const currentItems = [...sList.querySelectorAll('.s-item')];
+    let targetIdx = dragIdx;
+
+    for (let i = 0; i < currentItems.length; i++) {
+      const r = currentItems[i].getBoundingClientRect();
+      if (ghostCY > r.top && ghostCY < r.bottom) {
+        targetIdx = i;
+        break;
+      }
+    }
+
+    if (targetIdx !== dragIdx) {
+      const activeName = activeId !== null ? scripts[activeId]?.name : null;
+      const moved = dragList.splice(dragIdx, 1)[0];
+      dragList.splice(targetIdx, 0, moved);
+      dragIdx = targetIdx;
+      scripts = [...dragList];
+      // Keep activeId pointing to the same script by name
+      if (activeName) activeId = scripts.findIndex(s => s.name === activeName);
+      renderScriptList();
+      document.querySelectorAll('.s-item')[dragIdx].style.opacity = '0.3';
+    }
+  }
+
+  async function onUp() {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    dragGhost.remove();
+    dragGhost = null;
+    dragIdx   = null;
+    // Reset opacity
+    document.querySelectorAll('.s-item').forEach(el => el.style.opacity = '');
+    // Commit order to Python
+    await call('set_script_order', scripts.map(s => s.name));
+    renderScriptList();
+  }
+
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
 }
 
 function showScriptError(msg) {
