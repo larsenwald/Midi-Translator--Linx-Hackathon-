@@ -766,7 +766,8 @@ def run_startup_checks(window, base_dir):
                 time.sleep(3)
                 exe_path = _find_loopmidi_exe()
                 # Clean up desktop shortcut the installer leaves behind
-                shortcut = os.path.join(os.environ.get('USERPROFILE', ''), 'Desktop', 'loopMIDI.lnk')
+                public_desktop = os.path.join(os.environ.get('PUBLIC', r'C:\Users\Public'), 'Desktop')
+                shortcut = os.path.join(public_desktop, 'loopMIDI.lnk')
                 if os.path.exists(shortcut):
                     try:
                         os.remove(shortcut)
