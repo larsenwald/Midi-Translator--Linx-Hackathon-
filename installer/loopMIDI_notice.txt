@@ -1,0 +1,14 @@
+ABOUT LOOPMIDI
+--------------
+
+MidiWarp uses loopMIDI, a free virtual MIDI driver developed by Tobias Erichsen
+(tobias-erichsen.de), to route MIDI signals between applications.
+
+If loopMIDI is not already installed on your system, MidiWarp will install it
+automatically and silently the first time it runs. No extra steps required.
+
+By clicking Next and completing this installation, you acknowledge that loopMIDI
+may be installed on your system as part of MidiWarp's setup process.
+
+loopMIDI is free software. You can learn more at:
+https://www.tobias-erichsen.de/software/loopmidi.html
