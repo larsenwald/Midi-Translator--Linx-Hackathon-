@@ -971,7 +971,6 @@ async function call(method, ...args) {
 let eventCount = 0;
 let paused     = false;
 const MAX_ROWS = 100;
-let wavePoints = Array(50).fill(17);
 
 const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 function noteName(n) { return NOTE_NAMES[n % 12] + (Math.floor(n / 12) - 1); }
@@ -1067,15 +1066,32 @@ function updateLiveDisplay(raw, tx) {
   }
 }
 
+// ── Waveform — time-driven scrolling, fixed speed ──
+const WAVE_POINTS    = 80;
+const WAVE_SCROLL_MS = 130;
+
+let waveAmps       = Array(WAVE_POINTS).fill(17);
+let waveCurrentAmp = 0;
+
 function pushWave(ev) {
   const amp = (ev.vel !== undefined ? ev.vel / 127
              : ev.val !== undefined ? ev.val / 127
              : 0.5);
-  wavePoints.push(17 - amp * 13);
-  if (wavePoints.length > 50) wavePoints.shift();
-  const pts = wavePoints.map((y,i) => `${i*(600/49)},${y}`).join(' ');
-  document.getElementById('waveLine').setAttribute('points', pts);
+  waveCurrentAmp = amp;
 }
+
+// Use setInterval instead of rAF for the data tick — rAF can pause in pywebview
+// when the window is hidden or loses focus. setInterval keeps running.
+setInterval(() => {
+  const idle = 17 + (Math.random() - 0.5) * 1.5;
+  const y    = idle - waveCurrentAmp * 12;
+  waveAmps.push(y);
+  if (waveAmps.length > WAVE_POINTS) waveAmps.shift();
+  waveCurrentAmp = Math.max(0, waveCurrentAmp * 0.6);
+
+  const pts = waveAmps.map((y, i) => `${i * (600 / (WAVE_POINTS - 1))},${y}`).join(' ');
+  document.getElementById('waveLine').setAttribute('points', pts);
+}, WAVE_SCROLL_MS);
 
 function addLogRow(raw, tx) {
   const log   = document.getElementById('eventLog');
@@ -1110,15 +1126,6 @@ function addLogRow(raw, tx) {
   const rows = log.querySelectorAll('.log-row');
   if (rows.length > MAX_ROWS) rows[rows.length - 1].remove();
 }
-
-// Idle waveform drift
-;(function driftWave() {
-  wavePoints.push(17 + (Math.random() - 0.5) * 1.2);
-  if (wavePoints.length > 50) wavePoints.shift();
-  const pts = wavePoints.map((y,i) => `${i*(600/49)},${y}`).join(' ');
-  document.getElementById('waveLine').setAttribute('points', pts);
-  setTimeout(driftWave, 200 + Math.random()*200);
-})();
 
 // Called by Python when the input port dies
 window.onMidiDisconnected = function() {
@@ -1251,8 +1258,8 @@ function clearLog() {
   document.getElementById('sbEvTxt').textContent = '0 events';
   document.getElementById('eventLog').innerHTML =
     '<div class="log-empty" id="logEmpty"><div class="log-empty-glyph">∅</div><span>No events — connect a MIDI input to begin</span></div>';
-  wavePoints = Array(50).fill(17);
-  document.getElementById('waveLine').setAttribute('points','');
+  waveAmps       = Array(WAVE_POINTS).fill(17);
+  waveCurrentAmp = 0;
   document.getElementById('liveRaw').textContent = 'waiting…';
   document.getElementById('liveRaw').className = 'live-event-main idle';
   document.getElementById('liveRawDetail').innerHTML = '';
