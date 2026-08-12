@@ -633,6 +633,33 @@ _UI_PUSH_INTERVAL = 1.0 / 30  # ~30fps cap on live-feed updates for those types
 
 def monitor_loop(midi: MidiHandler, engine: ScriptEngine, api: API):
     last_ui_push = {}  # per message-type throttle state, keyed by msg.type
+    # Holds the most recent event for a throttled type that was SKIPPED
+    # (i.e. not yet shown in the UI). If a burst ends mid-window — e.g. the
+    # pitch wheel snaps back to center and no further messages arrive — this
+    # is what lets us flush that final value instead of leaving the live
+    # feed stuck on a stale one.
+    pending_push = {}
+
+    def _send_ui_payload(msg, out_msgs, applied, engine):
+        raw_ev = msg_to_event(msg, None)
+        tx_ev  = msg_to_event(out_msgs[0], applied) if out_msgs else raw_ev
+
+        script_errors = {
+            s["name"]: s["last_error"]
+            for s in engine.scripts
+            if s.get("last_error")
+        }
+
+        payload = json.dumps({
+            "raw": raw_ev,
+            "tx":  tx_ev,
+            "script_errors": script_errors,
+        })
+
+        try:
+            api._window.evaluate_js(f"window.onMidiEvent({payload})")
+        except Exception:
+            pass
 
     while True:
         try:
@@ -647,36 +674,23 @@ def monitor_loop(midi: MidiHandler, engine: ScriptEngine, api: API):
                 # and always push immediately. High-frequency continuous
                 # controllers are coalesced to _UI_PUSH_INTERVAL so a fast
                 # sweep can't pile up evaluate_js() calls faster than the
-                # webview can render them.
+                # webview can render them. A skipped event is stashed in
+                # pending_push so it still reaches the UI once the window
+                # clears — either on the next message of that type, or via
+                # the idle flush below if the stream stops.
                 push_ui = True
                 if msg.type in _HIGH_FREQUENCY_TYPES:
                     now = time.monotonic()
                     prev = last_ui_push.get(msg.type, 0.0)
                     if now - prev < _UI_PUSH_INTERVAL:
                         push_ui = False
+                        pending_push[msg.type] = (msg, out_msgs, applied)
                     else:
                         last_ui_push[msg.type] = now
+                        pending_push.pop(msg.type, None)
 
                 if push_ui and api._window:
-                    raw_ev = msg_to_event(msg, None)
-                    tx_ev  = msg_to_event(out_msgs[0], applied) if out_msgs else raw_ev
-
-                    script_errors = {
-                        s["name"]: s["last_error"]
-                        for s in engine.scripts
-                        if s.get("last_error")
-                    }
-
-                    payload = json.dumps({
-                        "raw": raw_ev,
-                        "tx":  tx_ev,
-                        "script_errors": script_errors,
-                    })
-
-                    try:
-                        api._window.evaluate_js(f"window.onMidiEvent({payload})")
-                    except Exception:
-                        pass
+                    _send_ui_payload(msg, out_msgs, applied, engine)
 
         except ConnectionError as e:
             print(f"[MIDI] {e}")
@@ -685,6 +699,18 @@ def monitor_loop(midi: MidiHandler, engine: ScriptEngine, api: API):
                     api._window.evaluate_js("window.onMidiDisconnected()")
                 except Exception:
                     pass
+
+        # Idle flush: if a throttled event was skipped and the window has
+        # since elapsed with no newer message of that type arriving (e.g.
+        # the pitch wheel snapped back to center and went quiet), push the
+        # last known value now so the UI never shows a stale/stuck reading.
+        if pending_push and api._window:
+            now = time.monotonic()
+            for msg_type in list(pending_push.keys()):
+                if now - last_ui_push.get(msg_type, 0.0) >= _UI_PUSH_INTERVAL:
+                    msg, out_msgs, applied = pending_push.pop(msg_type)
+                    last_ui_push[msg_type] = now
+                    _send_ui_payload(msg, out_msgs, applied, engine)
 
         time.sleep(0.001)
 
