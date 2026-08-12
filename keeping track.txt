@@ -1,10 +1,10 @@
 things to add:
 midiwarp on start up. starts quietly (minimized) and connects to the last instrument that was connected
 
-center the loading start up text
-
 RELEASED (v1.0.1)
 things added/fixed:
 duplicate apps when launching exe and app already running
 
 saved scripts not showing on initial launch
+
+center the loading start up text
