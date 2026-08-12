@@ -186,6 +186,22 @@ class MidiHandler:
 
 # ─── SCRIPT ENGINE ────────────────────────────────────────────────────────────
 
+# Note-name constants (C4=60, Cs4=61, Db4=61, ...) built once at import time.
+# Rebuilding this 256-entry dict on every incoming MIDI message was the main
+# source of lag during fast CC/pitchwheel sweeps — it's static, so we compute
+# it a single time here and merge it into each per-message context instead.
+def _build_note_name_constants():
+    names = {}
+    NOTE_NAMES_SHARP = ['C','Cs','D','Ds','E','F','Fs','G','Gs','A','As','B']
+    NOTE_NAMES_FLAT  = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B']
+    for midi_num in range(128):
+        octave = (midi_num // 12) - 1
+        names[f'{NOTE_NAMES_SHARP[midi_num % 12]}{octave}'] = midi_num
+        names[f'{NOTE_NAMES_FLAT[midi_num % 12]}{octave}']  = midi_num
+    return names
+
+NOTE_NAME_CONSTANTS = _build_note_name_constants()
+
 NEW_SCRIPT_TEMPLATE = """\
 # event_type : 'note_on', 'note_off', 'control_change', 'pitchwheel', 'program_change'
 # channel    : 1-16  (read/write)
@@ -314,13 +330,8 @@ class ScriptEngine:
         elif msg.type == "program_change":
             ctx["program"]  = msg.program
 
-        # Note name constants — C4=60, Cs4=61, Db4=61, etc.
-        NOTE_NAMES_SHARP = ['C','Cs','D','Ds','E','F','Fs','G','Gs','A','As','B']
-        NOTE_NAMES_FLAT  = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B']
-        for midi_num in range(128):
-            octave = (midi_num // 12) - 1
-            ctx[f'{NOTE_NAMES_SHARP[midi_num % 12]}{octave}'] = midi_num
-            ctx[f'{NOTE_NAMES_FLAT[midi_num % 12]}{octave}']  = midi_num
+        # Note name constants — C4=60, Cs4=61, Db4=61, etc. (precomputed once, see above)
+        ctx.update(NOTE_NAME_CONSTANTS)
 
         extra_msgs = []
         blocked    = [False]
@@ -607,7 +618,22 @@ def msg_to_event(msg, applied):
         ev.update({"raw": " ".join(f"{b:02X}" for b in msg.bytes())})
     return ev
 
+
+# Message types that can arrive in rapid, continuous bursts (modwheel sweeps,
+# pitch bend, aftertouch). MIDI I/O and script processing still happen for
+# every single one of these in real time below — this only throttles how
+# often we push a UI update to the webview, since evaluate_js() is a
+# synchronous round-trip into the browser process and was the actual
+# bottleneck: at high CC rates it couldn't keep up, so calls queued behind
+# each other and the UI (and the feed the user was watching) fell further
+# and further behind the longer the sweep continued.
+_HIGH_FREQUENCY_TYPES = ("control_change", "pitchwheel", "polytouch", "aftertouch")
+_UI_PUSH_INTERVAL = 1.0 / 30  # ~30fps cap on live-feed updates for those types
+
+
 def monitor_loop(midi: MidiHandler, engine: ScriptEngine, api: API):
+    last_ui_push = {}  # per message-type throttle state, keyed by msg.type
+
     while True:
         try:
             for msg in midi.iter_pending():
@@ -616,22 +642,37 @@ def monitor_loop(midi: MidiHandler, engine: ScriptEngine, api: API):
                 for out_msg in out_msgs:
                     midi.send(out_msg)
 
-                raw_ev = msg_to_event(msg, None)
-                tx_ev  = msg_to_event(out_msgs[0], applied) if out_msgs else raw_ev
+                # Decide whether this event should update the live feed now.
+                # Note on/off, program change, etc. are inherently low-rate
+                # and always push immediately. High-frequency continuous
+                # controllers are coalesced to _UI_PUSH_INTERVAL so a fast
+                # sweep can't pile up evaluate_js() calls faster than the
+                # webview can render them.
+                push_ui = True
+                if msg.type in _HIGH_FREQUENCY_TYPES:
+                    now = time.monotonic()
+                    prev = last_ui_push.get(msg.type, 0.0)
+                    if now - prev < _UI_PUSH_INTERVAL:
+                        push_ui = False
+                    else:
+                        last_ui_push[msg.type] = now
 
-                script_errors = {
-                    s["name"]: s["last_error"]
-                    for s in engine.scripts
-                    if s.get("last_error")
-                }
+                if push_ui and api._window:
+                    raw_ev = msg_to_event(msg, None)
+                    tx_ev  = msg_to_event(out_msgs[0], applied) if out_msgs else raw_ev
 
-                payload = json.dumps({
-                    "raw": raw_ev,
-                    "tx":  tx_ev,
-                    "script_errors": script_errors,
-                })
+                    script_errors = {
+                        s["name"]: s["last_error"]
+                        for s in engine.scripts
+                        if s.get("last_error")
+                    }
 
-                if api._window:
+                    payload = json.dumps({
+                        "raw": raw_ev,
+                        "tx":  tx_ev,
+                        "script_errors": script_errors,
+                    })
+
                     try:
                         api._window.evaluate_js(f"window.onMidiEvent({payload})")
                     except Exception:
